@@ -102,7 +102,7 @@ def get_loss(loss_name, from_logits, **kwargs):
     multitask = kwargs.get("multitask", False)
     if from_logits or multitask:
       raise NotImplementedError
-    print(f'Masked Binary Cross Entropy')
+    print('Masked Binary Cross Entropy')
     return MaskedBCE()
 
   if loss_name == "inv_kl_loss":
@@ -121,8 +121,7 @@ def _add_additional_embedding_layer(doc_embedding, glorot, seed):
 def _get_bias(**kwargs):
   smart_bias_value = kwargs.get('smart_bias_value', 0)
   print('Smart bias init to ', smart_bias_value)
-  output_bias = tf.keras.initializers.Constant(smart_bias_value)
-  return output_bias
+  return tf.keras.initializers.Constant(smart_bias_value)
 
 
 def load_inhouse_bert(model_type, trainable, seed, **kwargs):
@@ -156,25 +155,33 @@ def get_last_layer(**kwargs):
   layer_name = kwargs.get('last_layer_name', 'dense_1')
 
   if kwargs.get('num_classes', 1) > 1:
-    last_layer = tf.keras.layers.Dense(
-      kwargs["num_classes"], activation="softmax", kernel_initializer=glorot,
-      bias_initializer=output_bias, name=layer_name
+    return tf.keras.layers.Dense(
+        kwargs["num_classes"],
+        activation="softmax",
+        kernel_initializer=glorot,
+        bias_initializer=output_bias,
+        name=layer_name,
     )
 
   elif kwargs.get('num_raters', 1) > 1:
     if kwargs.get('multitask', False):
       raise NotImplementedError
-    last_layer = tf.keras.layers.Dense(
-      kwargs['num_raters'], activation="sigmoid", kernel_initializer=glorot,
-      bias_initializer=output_bias, name='probs')
-
-  else:
-    last_layer = tf.keras.layers.Dense(
-      1, activation="sigmoid", kernel_initializer=glorot,
-      bias_initializer=output_bias, name=layer_name
+    return tf.keras.layers.Dense(
+        kwargs['num_raters'],
+        activation="sigmoid",
+        kernel_initializer=glorot,
+        bias_initializer=output_bias,
+        name='probs',
     )
 
-  return last_layer
+  else:
+    return tf.keras.layers.Dense(
+        1,
+        activation="sigmoid",
+        kernel_initializer=glorot,
+        bias_initializer=output_bias,
+        name=layer_name,
+    )
 
 def load_bertweet(**kwargs):
   bert = TFAutoModelForSequenceClassification.from_pretrained(

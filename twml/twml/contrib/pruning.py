@@ -152,10 +152,7 @@ def find_output_mask(tensor):
     if len(op.outputs) != 1:
       continue
     if op.type in ['MatMul', 'Conv1D', 'Conv2D', 'Conv3D']:
-      # masks of descendants are only relevant if tensor is right-multiplied
-      if tensor == op.inputs[1]:
-        return find_output_mask(op.outputs[0])
-      return None
+      return find_output_mask(op.outputs[0]) if tensor == op.inputs[1] else None
     mask = find_output_mask(op.outputs[0])
     if mask is not None:
       return mask
@@ -179,9 +176,7 @@ def find_mask(tensor):
     return output_mask
   if output_mask is None:
     return input_mask
-  if input_mask is output_mask:
-    return input_mask
-  return input_mask * output_mask
+  return input_mask if input_mask is output_mask else input_mask * output_mask
 
 
 def pruned_shape(tensor):
@@ -347,17 +342,18 @@ def prune(signals, masks=None):
     # find layer with smallest pruning signal
     l = tf.argmin(min_signals)
 
-    # construct pruning operations, one for each mask
-    updates = []
-    for k, i in enumerate(min_idx):
-      # set mask of layer l to 0 where pruning signal is smallest
-      updates.append(
+    updates = [
         tf.cond(
-          tf.equal(l, k),
-          lambda: tf.scatter_update(
-            masks[k], tf.Print(i, [i], message="Pruning layer [{0}] at index ".format(k)), 0.),
-          lambda: masks[k]))
-
+            tf.equal(l, k),
+            lambda: tf.scatter_update(
+                masks[k],
+                tf.Print(i, [i],
+                         message="Pruning layer [{0}] at index ".format(k)),
+                0.0,
+            ),
+            lambda: masks[k],
+        ) for k, i in enumerate(min_idx)
+    ]
     updates = tf.group(updates, name='prune')
 
   return updates

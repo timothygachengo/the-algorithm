@@ -36,9 +36,10 @@ class LossFunctionWrapper(tf.keras.losses.Loss):
     return ag_fn(y_true, y_pred, **self._fn_kwargs)
 
   def get_config(self):
-    config = {}
-    for k, v in self._fn_kwargs.items():
-      config[k] = backend.eval(v) if tf_utils.is_tensor_or_variable(v) else v
+    config = {
+        k: backend.eval(v) if tf_utils.is_tensor_or_variable(v) else v
+        for k, v in self._fn_kwargs.items()
+    }
     base_config = super().get_config()
     return dict(list(base_config.items()) + list(config.items()))
 

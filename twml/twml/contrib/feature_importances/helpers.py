@@ -7,7 +7,7 @@ import tensorflow.compat.v1 as tf
 
 def write_list_to_hdfs_gfile(list_to_write, output_path):
   """Use tensorflow gfile to write a list to a location on hdfs"""
-  locname = "/tmp/{}".format(str(uuid.uuid4()))
+  locname = f"/tmp/{str(uuid.uuid4())}"
   with open(locname, "w") as f:
     for row in list_to_write:
       f.write("%s\n" % row)
@@ -31,33 +31,30 @@ def longest_common_prefix(strings, split_character):
   s1, s2 = sorted_strings[0], sorted_strings[-1]
   if s1 == s2:
     # If the strings are the same, just return the full string
-    out = s1
-  else:
-    # If the strings are not the same, return the longest common prefix optionally ending in split_character
-    ix = 0
-    for i in range(min(len(s1), len(s2))):
-      if s1[i] != s2[i]:
-        break
-      if split_character is None or s1[i] == split_character:
-        ix = i + 1
-    out = s1[:ix]
-  return out
+    return s1
+  # If the strings are not the same, return the longest common prefix optionally ending in split_character
+  ix = 0
+  for i in range(min(len(s1), len(s2))):
+    if s1[i] != s2[i]:
+      break
+    if split_character is None or s1[i] == split_character:
+      ix = i + 1
+  return s1[:ix]
 
 
 def _expand_prefix(fname, prefix, split_character):
   if len(fname) == len(prefix):
     # If the prefix is already the full feature, just take the feature name
-    out = fname
+    return fname
   elif split_character is None:
     # Advance the prefix by one character
-    out = fname[:len(prefix) + 1]
+    return fname[:len(prefix) + 1]
   else:
     # Advance the prefix to the next instance of split_character or the end of the string
     for ix in range(len(prefix), len(fname)):
       if fname[ix] == split_character:
         break
-    out = fname[:ix + 1]
-  return out
+    return fname[:ix + 1]
 
 
 def _get_feature_types_from_records(records, fnames):
@@ -91,6 +88,6 @@ def _get_feature_name_from_config(feature_config):
     try:
       fname = decode_str_or_unicode(f['featureName'])
     except UnicodeEncodeError as e:
-      logging.error("Encountered decoding exception when decoding %s: %s" % (f, e))
+      logging.error(f"Encountered decoding exception when decoding {f}: {e}")
     decoded_feature_names.append(fname)
   return decoded_feature_names

@@ -255,7 +255,7 @@ def export_feature_spec(dir_path, feature_spec_dict):
   file_path = os.path.join(dir_path, fname)
   with tf.io.gfile.GFile(file_path, mode='w') as f:
     yaml.dump(feature_spec_dict, f, default_flow_style=False, allow_unicode=True)
-  tf.logging.info("Exported feature spec to %s" % file_path)
+  tf.logging.info(f"Exported feature spec to {file_path}")
 
   return file_path
 

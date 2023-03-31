@@ -18,7 +18,7 @@ except ModuleNotFoundError:
 def upload_model(full_gcs_model_path):
   folder_name = full_gcs_model_path
   if folder_name[:5] != "gs://":
-    folder_name = "gs://" + folder_name
+    folder_name = f"gs://{folder_name}"
 
   dirname = os.path.dirname(folder_name)
   epoch = os.path.basename(folder_name)
@@ -61,14 +61,12 @@ def compute_precision_fixed_recall(labels, preds, fixed_recall):
 
 def load_inference_func(model_folder):
   model = tf.saved_model.load(model_folder, ["serve"])
-  inference_func = model.signatures["serving_default"]
-  return inference_func
+  return model.signatures["serving_default"]
 
 
 def execute_query(client, query):
   job = client.query(query)
-  df = job.result().to_dataframe()
-  return df
+  return job.result().to_dataframe()
 
 
 def execute_command(cmd, print_=True):

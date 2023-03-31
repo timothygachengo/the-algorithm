@@ -51,7 +51,7 @@ class EventBusPipedBinaryRecordReader(BinaryRecordReader):
     self.jar_file = jar_file
     self.num_eb_threads = num_eb_threads
     self.subscriber_id = subscriber_id
-    self.filter_str = filter_str if filter_str else '""'
+    self.filter_str = filter_str or '""'
     self.buffer_size = buffer_size
     self.lock = Lock()
     self._pipe = None
@@ -106,7 +106,7 @@ class EventBusPipedBinaryRecordReader(BinaryRecordReader):
       try:
         return self._read()
       except Exception as e:
-        logging.error("Error reading bytes for next record: {}".format(e))
+        logging.error(f"Error reading bytes for next record: {e}")
         if self.debug:
           raise
 
@@ -116,4 +116,4 @@ class EventBusPipedBinaryRecordReader(BinaryRecordReader):
       self._buffered_reader.close()
       self._pipe.terminate()
     except Exception as e:
-      logging.error("Error closing reader: {}".format(e))
+      logging.error(f"Error closing reader: {e}")

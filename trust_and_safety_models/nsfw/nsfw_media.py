@@ -26,25 +26,16 @@ def decode_fn_embedding(example_proto):
     "embedding": tf.io.FixedLenFeature([256], dtype=tf.float32),
     "labels": tf.io.FixedLenFeature([], dtype=tf.int64),
   }
-  
-  example = tf.io.parse_single_example(
-      example_proto,
-      feature_description
-  )
 
-  return example
+  return tf.io.parse_single_example(example_proto, feature_description)
 
 def preprocess_embedding_example(example_dict, positive_label=1, features_as_dict=False):
   labels = example_dict["labels"]
   label = tf.math.reduce_any(labels == positive_label)
   label = tf.cast(label, tf.int32)
   embedding = example_dict["embedding"]
-  
-  if features_as_dict:
-    features = {"embedding": embedding}
-  else:
-    features = embedding
-    
+
+  features = {"embedding": embedding} if features_as_dict else embedding
   return features, label
 input_root = ...
 sens_prev_input_root = ...
@@ -71,7 +62,7 @@ if use_sens_prev_data:
   train_sens_prev_glob = f"{sens_prev_input_root}/train/tfrecord/*.tfrecord"
   train_sens_prev_files = tf.io.gfile.glob(train_sens_prev_glob)
   train_files = train_files + train_sens_prev_files
-  
+
 random.shuffle(train_files)
 
 if not len(train_files):
@@ -83,17 +74,17 @@ test_files =  tf.io.gfile.glob(test_glob)
 
 if not len(test_files):
   raise ValueError(f"Did not find any eval files matching {test_glob}")
-  
+
 test_ds = tf.data.TFRecordDataset(test_files).map(decode_fn_embedding)
 test_ds = test_ds.map(lambda x: preprocess_embedding_example(x, positive_label=positive_label)).batch(batch_size=test_batch_size)
-  
+
 if use_sens_prev_data:
   test_sens_prev_glob = f"{sens_prev_input_root}/test/tfrecord/*.tfrecord"
   test_sens_prev_files =  tf.io.gfile.glob(test_sens_prev_glob)
-  
+
   if not len(test_sens_prev_files):
     raise ValueError(f"Did not find any eval files matching {test_sens_prev_glob}")
-  
+
   test_sens_prev_ds = tf.data.TFRecordDataset(test_sens_prev_files).map(decode_fn_embedding)
   test_sens_prev_ds = test_sens_prev_ds.map(lambda x: preprocess_embedding_example(x, positive_label=positive_label)).batch(batch_size=test_batch_size)
 
@@ -105,28 +96,27 @@ if do_resample:
 
 train_ds = train_ds.batch(batch_size=256).shuffle(buffer_size=10)
 train_ds = train_ds.repeat()
-  
+
 
 if has_validation_data: 
   eval_glob = f"{input_root}/validation/tfrecord/*.tfrecord"
   eval_files =  tf.io.gfile.glob(eval_glob)
-    
+
   if use_sens_prev_data:
     eval_sens_prev_glob = f"{sens_prev_input_root}/validation/tfrecord/*.tfrecord"
     eval_sens_prev_files = tf.io.gfile.glob(eval_sens_prev_glob)
     eval_files =  eval_files + eval_sens_prev_files
-    
-    
+
+
   if not len(eval_files):
     raise ValueError(f"Did not find any eval files matching {eval_glob}")
-  
-  eval_ds = tf.data.TFRecordDataset(eval_files).map(decode_fn_embedding)
-  eval_ds = eval_ds.map(lambda x: preprocess_embedding_example(x, positive_label=positive_label)).batch(batch_size=validation_batch_size)
 
+  eval_ds = tf.data.TFRecordDataset(eval_files).map(decode_fn_embedding)
 else:
   
   eval_ds = tf.data.TFRecordDataset(test_files).map(decode_fn_embedding)
-  eval_ds = eval_ds.map(lambda x: preprocess_embedding_example(x, positive_label=positive_label)).batch(batch_size=validation_batch_size)
+eval_ds = eval_ds.map(lambda x: preprocess_embedding_example(x, positive_label=positive_label)).batch(batch_size=validation_batch_size)
+
 check_ds = tf.data.TFRecordDataset(train_files).map(decode_fn_embedding)
 cnt = 0
 pos_cnt = 0
@@ -137,13 +127,13 @@ for example in tqdm(check_ds):
   cnt += 1
 print(f'{cnt} train entries with {pos_cnt} positive')
 
-metrics = []
-
-metrics.append(
-  tf.keras.metrics.PrecisionAtRecall(
-    recall=0.9, num_thresholds=200, class_id=None, name=None, dtype=None
-  )
-)
+metrics = [
+    tf.keras.metrics.PrecisionAtRecall(recall=0.9,
+                                       num_thresholds=200,
+                                       class_id=None,
+                                       name=None,
+                                       dtype=None)
+]
 
 metrics.append(
   tf.keras.metrics.AUC(
@@ -300,14 +290,14 @@ test_preds = []
 for batch_features, batch_labels in tqdm(test_ds):
   test_preds.extend(loaded_model.predict_proba(batch_features))
   test_labels.extend(batch_labels.numpy())
-  
+
 test_sens_prev_labels = []
 test_sens_prev_preds = []
 
 for batch_features, batch_labels in tqdm(test_sens_prev_ds):
   test_sens_prev_preds.extend(loaded_model.predict_proba(batch_features))
   test_sens_prev_labels.extend(batch_labels.numpy())
-  
+
 n_test_pos = 0
 n_test_neg = 0
 n_test = 0
@@ -376,13 +366,13 @@ plt.ylabel("freq")
 plt.figure(figsize = (20, 5))
 plt.subplot(1, 3, 1)
 
-plt.plot(pr[2], pr[0][0:-1])
+plt.plot(pr[2], pr[0][:-1])
 plt.xlabel("threshold")
 plt.ylabel("precision")
 
 plt.subplot(1, 3, 2)
 
-plt.plot(pr[2], pr[1][0:-1])
+plt.plot(pr[2], pr[1][:-1])
 plt.xlabel("threshold")
 plt.ylabel("recall")
 plt.title("Keras", size=20)

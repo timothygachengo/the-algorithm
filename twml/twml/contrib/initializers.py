@@ -9,17 +9,16 @@ class PartitionConstant(tf.keras.initializers.Constant):
   """A constant initializer that supports partitions"""
 
   def __call__(self, shape, dtype=None, partition_info=None):
-    if partition_info is not None:
-      if not isinstance(self.value, np.ndarray):
-        raise ValueError(
-          "Currently, PartitionConstant only supports "
-          "partitioning on np.ndarrays. Got {}".format(type(self.value).__name__))
-      offsets = partition_info.var_offset
-      indices = tuple([slice(offset, offset + size) for offset, size in zip(offsets, shape)])
-      subset = self.value[indices]
-      return subset
-    else:
+    if partition_info is None:
       return self.value
+    if not isinstance(self.value, np.ndarray):
+      raise ValueError(
+          f"Currently, PartitionConstant only supports partitioning on np.ndarrays. Got {type(self.value).__name__}"
+      )
+    offsets = partition_info.var_offset
+    indices = tuple(
+        slice(offset, offset + size) for offset, size in zip(offsets, shape))
+    return self.value[indices]
 
 
 partition_constant_initializer = PartitionConstant
@@ -37,9 +36,9 @@ class PlaceholderInitializer(tf.keras.initializers.Initializer):
       if self.dtype != dtype:
         raise ValueError("dtype does not match placeholder dtype")
       offsets = partition_info.var_offset
-      indices = tuple([slice(offset, offset + size) for offset, size in zip(offsets, shape)])
-      subset = self.value[indices]
-      return subset
+      indices = tuple(
+          slice(offset, offset + size) for offset, size in zip(offsets, shape))
+      return self.value[indices]
     else:
       return self.value
 
@@ -50,7 +49,7 @@ def get_init_feed_dict():
   init_feed_collection = tf.get_collection(TWML_INIT_FEED_KEY)
   init_feed_dict = {}
   for d in init_feed_collection:
-    init_feed_dict.update(d)
+    init_feed_dict |= d
   return init_feed_dict
 
 

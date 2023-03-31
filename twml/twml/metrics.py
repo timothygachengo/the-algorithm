@@ -208,12 +208,9 @@ def _get_arce_predictions(predictions, weights, label_weighted, labels,
       total_positive_unweighted, tf.reduce_sum(labels),
       name="total_positive_unweighted_update")
 
-    if deprecated_rce:
-      normalizer = tf.reduce_sum(labels) / tf.reduce_sum(label_weighted)
-    else:
-      # sum of labels / sum of weighted labels
-      normalizer = update_total_positive_unweighted / update_total_positive
-
+    normalizer = (tf.reduce_sum(labels) / tf.reduce_sum(label_weighted)
+                  if deprecated_rce else update_total_positive_unweighted /
+                  update_total_positive)
     label_comp = tf.subtract(tf.to_float(tf.size(labels)), tf.reduce_sum(labels))
     normalizer_comp = label_comp / label_weighted_comp
 
@@ -221,20 +218,19 @@ def _get_arce_predictions(predictions, weights, label_weighted, labels,
     weights = tf.ones(shape=tf.shape(labels), dtype=tf.float32, name="default_weight")
     total_positive = total_positive_unweighted
     update_total_positive = update_total_positive_unweighted
+  elif deprecated_rce:
+    normalizer = tf.reduce_sum(label_weighted) / tf.reduce_sum(predictions_weighted)
   else:
-    if deprecated_rce:
-      normalizer = tf.reduce_sum(label_weighted) / tf.reduce_sum(predictions_weighted)
-    else:
-      # normalizer used for NRCE (and ARCE with up_weight=True)
-      total_prediction = _metric_variable(name='total_prediction', shape=[], dtype=tf.float32)
+    # normalizer used for NRCE (and ARCE with up_weight=True)
+    total_prediction = _metric_variable(name='total_prediction', shape=[], dtype=tf.float32)
 
-      # update the variable holding the sum of weighted predictions
-      update_total_prediction = tf.assign_add(
-        total_prediction, tf.reduce_sum(predictions_weighted), name="total_prediction_update")
+    # update the variable holding the sum of weighted predictions
+    update_total_prediction = tf.assign_add(
+      total_prediction, tf.reduce_sum(predictions_weighted), name="total_prediction_update")
 
-      # this used to be tf.reduce_sum(label_weighted) / tf.reduce_sum(predictions_weighted)
-      # but it measure normalizer over batch was too flawed an approximation.
-      normalizer = update_total_positive / update_total_prediction
+    # this used to be tf.reduce_sum(label_weighted) / tf.reduce_sum(predictions_weighted)
+    # but it measure normalizer over batch was too flawed an approximation.
+    normalizer = update_total_positive / update_total_prediction
 
   pred_comp = tf.subtract(tf.ones(shape=tf.shape(labels), dtype=tf.float32), predictions)
   pred_comp_norm = tf.multiply(pred_comp, normalizer_comp, name="normalized_predictions_comp")
@@ -1061,7 +1057,7 @@ def get_binary_class_metric_fn(metrics=None):
           weights=weights, name=metric_name)
         eval_metric_ops[metric_name] = (value_op, update_op)
       else:
-        raise ValueError('Cannot find the metric named ' + metric_name)
+        raise ValueError(f'Cannot find the metric named {metric_name}')
 
     return eval_metric_ops
 
@@ -1211,7 +1207,8 @@ def get_multi_binary_class_metric_fn(metrics, classes=None, class_dim=1):
         else:
           raise ValueError("Metric should be either string or tuple of length 3.")
 
-        class_metric_name = metric_name + "_" + (classes[i] if classes is not None else str(i))
+        class_metric_name = f"{metric_name}_" + (classes[i] if classes
+                                                 is not None else str(i))
 
         if class_metric_name in eval_metric_ops:
           # avoid adding duplicate metrics.
@@ -1238,7 +1235,7 @@ def get_multi_binary_class_metric_fn(metrics, classes=None, class_dim=1):
             weights=class_weights, name=class_metric_name)
           eval_metric_ops[class_metric_name] = (value_op, update_op)
         else:
-          raise ValueError('Cannot find the metric named ' + metric_name)
+          raise ValueError(f'Cannot find the metric named {metric_name}')
 
     return eval_metric_ops
 

@@ -26,10 +26,7 @@ def get_partial_multi_binary_class_metric_fn(metrics, classes=None, class_dim=1,
     if predcols is None:
       preds = graph_output['output']
     else:
-      if isinstance(predcols, int):
-        predcol_list=[predcols]
-      else:
-        predcol_list=list(predcols)
+      predcol_list = [predcols] if isinstance(predcols, int) else list(predcols)
       for col in predcol_list:
         assert 0 <= col < graph_output['output'].shape[class_dim], 'Invalid Prediction Column Index !'
       preds  = tf.gather(graph_output['output'], indices=predcol_list, axis=class_dim)     # [batchSz, num_col]
@@ -55,7 +52,7 @@ def mean_numeric_label_topK(labels, predictions, weights, name, topK_id):
   return tf.metrics.mean(values=top_k_labels, name=name)
 
 def mean_gated_numeric_label_topK(labels, predictions, weights, name, topK_id, bar=2.0):
-  assert isinstance(bar, int) or isinstance(bar, float), "bar must be int or float"
+  assert isinstance(bar, (int, float)), "bar must be int or float"
   top_k_labels  = tf.gather(params=labels, indices=topK_id, axis=0)                # [topK, 1]
   gated_top_k_labels  = tf.cast(top_k_labels > bar*1.0, tf.int32)
   return tf.metrics.mean(values=gated_top_k_labels, name=name)
@@ -82,7 +79,7 @@ def get_metric_topK_fn_helper(targetMetrics, supportedMetrics_op, metrics=None, 
   if targetMetrics is None or supportedMetrics_op is None:
     raise ValueError("Invalid Target Metric List/op !")
 
-  targetMetrics = set([m.lower() for m in targetMetrics])
+  targetMetrics = {m.lower() for m in targetMetrics}
   if metrics is None:
     metrics = list(targetMetrics)
   else:
@@ -134,15 +131,16 @@ def get_metric_topK_fn_helper(targetMetrics, supportedMetrics_op, metrics=None, 
             K_min = tf.minimum(K, tf.shape(pred_score)[0])
             topK_id = tf.nn.top_k(tf.reshape(pred_score, shape=[-1]), k=K_min)[1]           # [topK]
             value_op, update_op = metric_factory(
-              labels=labels,
-              predictions=pred,
-              weights=weights,
-              name=metric_name+'__k_'+str(K),
-              topK_id=topK_id)
-            eval_metric_ops[metric_name+'__k_'+str(K)] = (value_op, update_op)
+                labels=labels,
+                predictions=pred,
+                weights=weights,
+                name=f'{metric_name}__k_{str(K)}',
+                topK_id=topK_id,
+            )
+            eval_metric_ops[f'{metric_name}__k_{str(K)}'] = (value_op, update_op)
 
       else:
-        raise ValueError('Cannot find the metric named ' + metric_name)
+        raise ValueError(f'Cannot find the metric named {metric_name}')
 
     return eval_metric_ops
 
@@ -155,10 +153,14 @@ def get_numeric_metric_fn(metrics=None, topK=(5,5,5), predcol=None, labelcol=Non
     metrics = list(DEFAULT_NUMERIC_METRICS)
   metrics   = list(set(metrics))
 
-  metric_op = get_metric_topK_fn_helper(targetMetrics=list(DEFAULT_NUMERIC_METRICS),
-                                        supportedMetrics_op=SUPPORTED_NUMERIC_METRICS,
-                                        metrics=metrics, topK=topK, predcol=predcol, labelcol=labelcol)
-  return metric_op
+  return get_metric_topK_fn_helper(
+      targetMetrics=list(DEFAULT_NUMERIC_METRICS),
+      supportedMetrics_op=SUPPORTED_NUMERIC_METRICS,
+      metrics=metrics,
+      topK=topK,
+      predcol=predcol,
+      labelcol=labelcol,
+  )
 
 
 
@@ -169,7 +171,7 @@ def get_single_binary_task_metric_fn(metrics, classnames, topK=(5,5,5), use_topK
   """
   def get_eval_metric_ops(graph_output, labels, weights):
     metric_op_base = get_partial_multi_binary_class_metric_fn(metrics, predcols=0, classes=classnames)
-    classnames_unw = ['unweighted_'+cs for cs in classnames]
+    classnames_unw = [f'unweighted_{cs}' for cs in classnames]
     metric_op_unw = get_partial_multi_binary_class_metric_fn(metrics, predcols=0, classes=classnames_unw)
 
     metrics_base_res = metric_op_base(graph_output, labels, weights)
@@ -193,7 +195,7 @@ def get_dual_binary_tasks_metric_fn(metrics, classnames, topK=(5,5,5), use_topK=
   def get_eval_metric_ops(graph_output, labels, weights):
 
     metric_op_base = get_partial_multi_binary_class_metric_fn(metrics, predcols=[0, 1], classes=classnames)
-    classnames_unw = ['unweighted_'+cs for cs in classnames]
+    classnames_unw = [f'unweighted_{cs}' for cs in classnames]
     metric_op_unw = get_partial_multi_binary_class_metric_fn(metrics, predcols=[0, 1], classes=classnames_unw)
 
     metrics_base_res = metric_op_base(graph_output, labels, weights)

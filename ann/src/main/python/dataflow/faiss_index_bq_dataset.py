@@ -219,7 +219,7 @@ class MergeAndBuildIndex(beam.CombineFn):
 
     logging.info(f"Uploading to GCS with path {self.gcs_output_path}")
     assert os.path.isdir(local_path)
-    for local_file in glob.glob(local_path + "/*"):
+    for local_file in glob.glob(f"{local_path}/*"):
       remote_path = os.path.join(
         self.gcs_output_path.split("/")[-1], local_file[1 + len(local_path) :]
       )

@@ -24,8 +24,9 @@ class PermutedInputFnFactory(object):
         and return a boolean value, to indicate if this data record should be kept in feature importance module or not.
     """
     if not (data_dir is None) ^ (file_list is None):
-      raise ValueError("Exactly one of data_dir and file_list can be provided. Got {} for data_dir and {} for file_list".format(
-        data_dir, file_list))
+      raise ValueError(
+          f"Exactly one of data_dir and file_list can be provided. Got {data_dir} for data_dir and {file_list} for file_list"
+      )
 
     file_list = file_list if file_list is not None else twml.util.list_files(twml.util.preprocess_path(data_dir))
     _next_batch = twml.input_fns.default_input_fn(file_list, 1, lambda x: x,
@@ -41,10 +42,12 @@ class PermutedInputFnFactory(object):
           if datarecord_filter_fn is None or datarecord_filter_fn(record):
             self.records.append(record)
         except tf.errors.OutOfRangeError:
-          logging.info("Stopping after reading {} records out of {}".format(i, record_count))
+          logging.info(f"Stopping after reading {i} records out of {record_count}")
           break
       if datarecord_filter_fn:
-        logging.info("datarecord_filter_fn has been applied; keeping {} records out of {}".format(len(self.records), record_count))
+        logging.info(
+            f"datarecord_filter_fn has been applied; keeping {len(self.records)} records out of {record_count}"
+        )
 
   def _get_record_generator(self):
     return (thrift_object_to_bytes(r) for r in self.records)
@@ -96,24 +99,12 @@ def _permutate_features(rec, fname_ftypes, records):
     fid = twml.feature_id(fname)[0]
     if rec_replace.__dict__.get(feature_type, None) is None:
       rec_replace.__dict__[feature_type] = (
-        dict() if feature_type != 'binaryFeatures' else set())
+          {} if feature_type != 'binaryFeatures' else set())
     if rec_new.__dict__.get(feature_type, None) is None:
-      rec_new.__dict__[feature_type] = (
-        dict() if feature_type != 'binaryFeatures' else set())
+      rec_new.__dict__[feature_type] = ({} if feature_type != 'binaryFeatures'
+                                        else set())
 
-    if feature_type != 'binaryFeatures':
-      if fid not in rec_replace.__dict__[feature_type] and fid in rec_new.__dict__.get(feature_type, dict()):
-        # If the replacement datarecord does not contain the feature but the original does
-        del rec_new.__dict__[feature_type][fid]
-      elif fid in rec_replace.__dict__[feature_type]:
-        # If the replacement datarecord does contain the feature
-        if rec_new.__dict__[feature_type] is None:
-          rec_new.__dict__[feature_type] = dict()
-        rec_new.__dict__[feature_type][fid] = rec_replace.__dict__[feature_type][fid]
-      else:
-        # If neither datarecord contains this feature
-        pass
-    else:
+    if feature_type == 'binaryFeatures':
       if fid not in rec_replace.__dict__[feature_type] and fid in rec_new.__dict__.get(feature_type, set()):
         # If the replacement datarecord does not contain the feature but the original does
         rec_new.__dict__[feature_type].remove(fid)
@@ -123,7 +114,13 @@ def _permutate_features(rec, fname_ftypes, records):
           rec_new.__dict__[feature_type] = set()
         rec_new.__dict__[feature_type].add(fid)
         # If neither datarecord contains this feature
-      else:
-        # If neither datarecord contains this feature
-        pass
+    elif fid not in rec_replace.__dict__[
+          feature_type] and fid in rec_new.__dict__.get(feature_type, {}):
+      # If the replacement datarecord does not contain the feature but the original does
+      del rec_new.__dict__[feature_type][fid]
+    elif fid in rec_replace.__dict__[feature_type]:
+        # If the replacement datarecord does contain the feature
+      if rec_new.__dict__[feature_type] is None:
+        rec_new.__dict__[feature_type] = {}
+      rec_new.__dict__[feature_type][fid] = rec_replace.__dict__[feature_type][fid]
   return rec_new

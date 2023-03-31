@@ -56,17 +56,16 @@ def calibrator_arguments(parser):
 
 def _generate_files_by_datetime(params):
 
-  files = list_files_by_datetime(
-    base_path=sanitize_hdfs_path(params.train_data_dir),
-    start_datetime=params.train_start_datetime,
-    end_datetime=params.train_end_datetime,
-    datetime_prefix_format=params.datetime_format,
-    extension="lzo",
-    parallelism=1,
-    hour_resolution=params.hour_resolution,
-    sort=True)
-
-  return files
+  return list_files_by_datetime(
+      base_path=sanitize_hdfs_path(params.train_data_dir),
+      start_datetime=params.train_start_datetime,
+      end_datetime=params.train_end_datetime,
+      datetime_prefix_format=params.datetime_format,
+      extension="lzo",
+      parallelism=1,
+      hour_resolution=params.hour_resolution,
+      sort=True,
+  )
 
 
 def get_calibrate_input_fn(parse_fn, params):
@@ -216,8 +215,9 @@ def calibrate(trainer, params, build_graph, input_fn, debug=False):
 
     # overwrite the current save_dir
     if params.overwrite_save_dir and tf.io.gfile.exists(params.calibrator_save_dir):
-      logging.info("Trainer overwriting existing save directory: %s (params.overwrite_save_dir)"
-                   % params.calibrator_save_dir)
+      logging.info(
+          f"Trainer overwriting existing save directory: {params.calibrator_save_dir} (params.overwrite_save_dir)"
+      )
       tf.io.gfile.rmtree(params.calibrator_save_dir)
 
     calibrator = IsotonicCalibrator(params.calibrator_num_bins)
@@ -258,7 +258,7 @@ def calibrate(trainer, params, build_graph, input_fn, debug=False):
     calibrator_save_dir = twml.util.sanitize_hdfs_path(params.calibrator_save_dir)
     # workers wait for calibration to be ready
     while not tf.io.gfile.exists(calibrator_save_dir + os.path.sep + "tfhub_module.pb"):
-      logging.info("Worker waiting for calibration at %s" % calibrator_save_dir)
+      logging.info(f"Worker waiting for calibration at {calibrator_save_dir}")
       time.sleep(60)
 
 
@@ -279,8 +279,9 @@ def discretize(params, feature_config, input_fn, debug=False):
 
     # overwrite the current save_dir
     if params.overwrite_save_dir and tf.io.gfile.exists(params.discretizer_save_dir):
-      logging.info("Trainer overwriting existing save directory: %s (params.overwrite_save_dir)"
-                   % params.discretizer_save_dir)
+      logging.info(
+          f"Trainer overwriting existing save directory: {params.discretizer_save_dir} (params.overwrite_save_dir)"
+      )
       tf.io.gfile.rmtree(params.discretizer_save_dir)
 
     config_map = feature_config()
@@ -331,7 +332,7 @@ def discretize(params, feature_config, input_fn, debug=False):
     discretizer_save_dir = twml.util.sanitize_hdfs_path(params.discretizer_save_dir)
     # workers wait for calibration to be ready
     while not tf.io.gfile.exists(discretizer_save_dir + os.path.sep + "tfhub_module.pb"):
-      logging.info("Worker waiting for calibration at %s" % discretizer_save_dir)
+      logging.info(f"Worker waiting for calibration at {discretizer_save_dir}")
       time.sleep(60)
 
 
@@ -517,7 +518,7 @@ def calibrate_calibrator_and_export(name, calibrator, build_graph_fn, params, fe
     final_calibrator_path = twml.util.sanitize_hdfs_path(final_calibrator_path)
 
     while not tf.io.gfile.exists(final_calibrator_path + os.path.sep + "tfhub_module.pb"):
-      logging.info("Worker waiting for calibration at %s" % final_calibrator_path)
+      logging.info(f"Worker waiting for calibration at {final_calibrator_path}")
       time.sleep(60)
 
   # Evaluate stage
@@ -596,7 +597,8 @@ def calibrate_discretizer_and_export(name, calibrator, build_graph_fn, params, f
     else:
       got_type = type(feature_config).__name__
       raise ValueError(
-        "Expecting feature_config to be FeatureConfig or function got %s" % got_type)
+          f"Expecting feature_config to be FeatureConfig or function got {got_type}"
+      )
 
     hooks = None
     if params_c.train_steps > 0:
@@ -611,7 +613,7 @@ def calibrate_discretizer_and_export(name, calibrator, build_graph_fn, params, f
     discretizer_save_dir = twml.util.sanitize_hdfs_path(params.discretizer_save_dir)
     # workers wait for calibration to be ready
     while not tf.io.gfile.exists(discretizer_save_dir + os.path.sep + "tfhub_module.pb"):
-      logging.info("Worker waiting for calibration at %s" % discretizer_save_dir)
+      logging.info(f"Worker waiting for calibration at {discretizer_save_dir}")
       time.sleep(60)
 
 

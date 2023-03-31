@@ -59,18 +59,18 @@ class ZscoreNormalization(Layer):
     """Creates the moving_mean and moving_var tf.Variables of the layer."""
     input_dim = input_shape[1]
     self.moving_mean = self.add_variable(
-      '{}_mean/EMA'.format(self.name),
-      initializer=tf.constant_initializer(),
-      shape=[input_dim],
-      dtype=self.data_type,
-      trainable=False
+        f'{self.name}_mean/EMA',
+        initializer=tf.constant_initializer(),
+        shape=[input_dim],
+        dtype=self.data_type,
+        trainable=False,
     )
     self.moving_var = self.add_variable(
-      '{}_variance/EMA'.format(self.name),
-      initializer=tf.constant_initializer(),
-      shape=[input_dim],
-      dtype=self.data_type,
-      trainable=False
+        f'{self.name}_variance/EMA',
+        initializer=tf.constant_initializer(),
+        shape=[input_dim],
+        dtype=self.data_type,
+        trainable=False,
     )
     self.built = True
 
@@ -197,12 +197,11 @@ class ZscoreNormalization(Layer):
       dense_mask = tf.math.logical_not(tf.equal(input, 0))
     input_dtype = input.dtype
 
-    if is_training:
-      if input_dtype != self.data_type:
-        input = tf.cast(input, self.data_type)
-      return self._training_pass(input, dense_mask, input_dtype, handle_single, zero_debias)
-    else:
+    if not is_training:
       return self._infer_pass(input, dense_mask, input_dtype, handle_single)
+    if input_dtype != self.data_type:
+      input = tf.cast(input, self.data_type)
+    return self._training_pass(input, dense_mask, input_dtype, handle_single, zero_debias)
 
 
 def zscore_normalization(

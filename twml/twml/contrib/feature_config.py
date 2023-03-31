@@ -37,14 +37,14 @@ class FeatureConfigBuilder(feature_config.FeatureConfigBuilder):
     discretize_dict = {}
     for config in self._sparse_extraction_configs:
       if config.discretize_num_bins and config.discretize_output_size_bits:
-        if config.discretize_type == "percentile":
-          calibrator = twml.contrib.calibrators.PercentileDiscretizerCalibrator
-        elif config.discretize_type == "hashed_percentile":
+        if config.discretize_type == "hashed_percentile":
           calibrator = twml.contrib.calibrators.HashedPercentileDiscretizerCalibrator
         elif config.discretize_type == "hashing":
           calibrator = twml.contrib.calibrators.HashingDiscretizerCalibrator
+        elif config.discretize_type == "percentile":
+          calibrator = twml.contrib.calibrators.PercentileDiscretizerCalibrator
         else:
-          raise ValueError("Unsupported discretizer type: " + config.discretize_type)
+          raise ValueError(f"Unsupported discretizer type: {config.discretize_type}")
         discretize_dict[config.output_name] = calibrator(
           config.discretize_num_bins,
           config.discretize_output_size_bits,

@@ -67,16 +67,16 @@ class MDLCalibrator(PercentileDiscretizerCalibrator):
     hash_map_keys = np.array(list(self._hash_map.keys()), dtype=np.int64)
     hash_map_values = np.array(list(self._hash_map.values()), dtype=np.float32)
 
-    discretizer = twml.layers.MDL(
-      n_feature=n_feature, n_bin=self._n_bin,
-      name=name, out_bits=self._out_bits,
-      hash_keys=hash_map_keys, hash_values=hash_map_values,
-      bin_ids=self._bin_ids.flatten(), bin_values=self._bin_vals.flatten(),
-      feature_offsets=feature_offsets,
-      **self._kwargs
-    )
-
-    return discretizer
+    return twml.layers.MDL(n_feature=n_feature,
+                           n_bin=self._n_bin,
+                           name=name,
+                           out_bits=self._out_bits,
+                           hash_keys=hash_map_keys,
+                           hash_values=hash_map_values,
+                           bin_ids=self._bin_ids.flatten(),
+                           bin_values=self._bin_vals.flatten(),
+                           feature_offsets=feature_offsets,
+                           **self._kwargs)
 
   def save(self, save_dir, name='calibrator', verbose=False):
     '''Save the calibrator into the given save_directory.
@@ -92,11 +92,8 @@ class MDLCalibrator(PercentileDiscretizerCalibrator):
 
     layer_args = self.get_layer_args()
 
-    calibrator_filename = os.path.join(save_dir, name + '.json.tf')
-    calibrator_dict = {
-      'layer_args': layer_args,
-      'saved_layer_scope': name + '/',
-    }
+    calibrator_filename = os.path.join(save_dir, f'{name}.json.tf')
+    calibrator_dict = {'layer_args': layer_args, 'saved_layer_scope': f'{name}/'}
     twml.write_file(calibrator_filename, calibrator_dict, encode='json')
 
     if verbose:

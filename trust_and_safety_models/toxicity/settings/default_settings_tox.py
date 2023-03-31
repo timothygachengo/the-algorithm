@@ -4,7 +4,7 @@ import os
 TEAM_PROJECT = "twttr-toxicity-prod"
 try:
   from google.cloud import bigquery
-except (ModuleNotFoundError, ImportError):
+except ImportError:
   print("No Google packages")
   CLIENT = None
 else:
@@ -16,7 +16,7 @@ else:
     CLIENT = None
     print("Issue at logging time", e)
 
-TRAINING_DATA_LOCATION = f"..."
+TRAINING_DATA_LOCATION = "..."
 GCS_ADDRESS = "..."
 LOCAL_DIR = os.getcwd()
 REMOTE_LOGDIR = "{GCS_ADDRESS}/logs"

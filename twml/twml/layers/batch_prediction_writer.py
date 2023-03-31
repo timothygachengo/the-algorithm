@@ -47,5 +47,4 @@ class BatchPredictionWriter(Layer):
     Returns:
       The output from the layer
     """
-    write_op = libtwml.ops.batch_prediction_response_writer(self.keys, values)
-    return write_op
+    return libtwml.ops.batch_prediction_response_writer(self.keys, values)

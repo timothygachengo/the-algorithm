@@ -39,7 +39,7 @@ class _KeyRecorder(object):
         return _KeyRecorder(self.tensorio, new_keys)
 
     # if no key starts with the prefix, this _key_recorder is not valid.
-    raise ValueError("Key not found: " + prefix)
+    raise ValueError(f"Key not found: {prefix}")
 
 
 # convert tensorio tensor type to numpy data type.
@@ -60,7 +60,7 @@ def _get_data_type(data_type):
   if data_type == 'Byte':
     return (np.int8, 1)
 
-  raise ValueError('Unexpected tensorio data type: ' + data_type)
+  raise ValueError(f'Unexpected tensorio data type: {data_type}')
 
 
 class TensorIO(object):
@@ -132,7 +132,8 @@ class TensorIO(object):
     Load data serialized under the given name, it could be a tensor or regular data.
     """
     if name not in self._spec:
-      raise ValueError('The specified key {} is not found in {}'.format(name, self._tensorio_path))
+      raise ValueError(
+          f'The specified key {name} is not found in {self._tensorio_path}')
 
     data_type = self._spec[name]['type']
     if data_type == 'tensor':
@@ -154,8 +155,4 @@ class TensorIO(object):
     """
     Shorthand for _load_tensor, but also supports hierarchical access like: tensorio['a']['b']['1']
     """
-    if k in self._spec:
-      # We have a full tensor name, directly load it.
-      return self._load_tensor(k)
-    else:
-      return _KeyRecorder(self)[k]
+    return self._load_tensor(k) if k in self._spec else _KeyRecorder(self)[k]

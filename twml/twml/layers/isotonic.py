@@ -72,5 +72,4 @@ class Isotonic(Layer):
     Returns:
       The output from the layer
     """
-    calibrate_op = libtwml.ops.isotonic_calibration(inputs, self.xs_input, self.ys_input)
-    return calibrate_op
+    return libtwml.ops.isotonic_calibration(inputs, self.xs_input, self.ys_input)

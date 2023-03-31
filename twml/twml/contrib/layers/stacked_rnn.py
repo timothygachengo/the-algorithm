@@ -116,17 +116,10 @@ class StackedRNN(twml.layers.Layer):
     if (cell_type != "LSTM"):
       raise NotImplementedError("Only LSTMs are supported")
 
-    if not isinstance(num_units, (list, tuple)):
-      num_units = [num_units]
-    else:
-      num_units = num_units
-
+    num_units = num_units if isinstance(num_units, (list, tuple)) else [num_units]
     self.num_layers = len(num_units)
-    if not isinstance(dropout, (tuple, list)):
-      dropout = [dropout] * self.num_layers
-    else:
-      dropout = dropout
-
+    dropout = (dropout if isinstance(dropout, (tuple, list)) else [dropout] *
+               self.num_layers)
     self.is_training = is_training
 
     is_gpu_available = twml.contrib.utils.is_gpu_available()

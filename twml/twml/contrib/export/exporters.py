@@ -48,14 +48,13 @@ class _AllSavedModelsExporter(tf.estimator.Exporter):
       tf.io.gfile.makedirs(backup_path)
       twml.util.backup_checkpoint(checkpoint_path, backup_path, empty_backup=False)
 
-    export_result = estimator.experimental_export_all_saved_models(
-      export_path,
-      self._input_receiver_fn_map,
-      assets_extra=self._assets_extra,
-      as_text=self._as_text,
-      checkpoint_path=checkpoint_path)
-
-    return export_result
+    return estimator.experimental_export_all_saved_models(
+        export_path,
+        self._input_receiver_fn_map,
+        assets_extra=self._assets_extra,
+        as_text=self._as_text,
+        checkpoint_path=checkpoint_path,
+    )
 
 
 class BestExporter(tf.estimator.BestExporter):

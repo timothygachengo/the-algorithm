@@ -253,7 +253,7 @@ def get_search_metric_fn(binary_metrics=None, search_metrics=None,
         if metric_name == 'ndcg':
           for top_k in ndcg_top_ks:
             # metric name will show as ndcg_1, ndcg_10, ...
-            metric_name_ndcg_top_k = metric_name + '_' + str(top_k)
+            metric_name_ndcg_top_k = f'{metric_name}_{str(top_k)}'
             top_k_int = tf.constant(top_k, dtype=tf.int32)
             # Note: having weights in ndcg does not make much sense
             # Because ndcg already has position weights/discounts
@@ -265,7 +265,7 @@ def get_search_metric_fn(binary_metrics=None, search_metrics=None,
               top_k_int=top_k_int)
             eval_metric_ops[metric_name_ndcg_top_k] = (value_op, update_op)
       else:
-        raise ValueError('Cannot find the search metric named ' + metric_name)
+        raise ValueError(f'Cannot find the search metric named {metric_name}')
 
     if use_binary_metrics:
       # add binary metrics to eval_metric_ops dict
@@ -285,7 +285,7 @@ def get_search_metric_fn(binary_metrics=None, search_metrics=None,
             name=metric_name)
           eval_metric_ops[metric_name] = (value_op, update_op)
         else:
-          raise ValueError('Cannot find the binary metric named ' + metric_name)
+          raise ValueError(f'Cannot find the binary metric named {metric_name}')
 
     return eval_metric_ops
 

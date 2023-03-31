@@ -102,9 +102,8 @@ def create_build_graph_fn(model_factory, loss_fn=None):
     if isinstance(output, dict):
       if loss is None:
         return output
-      else:
-        output['loss'] = loss
-        return output
+      output['loss'] = loss
+      return output
     else:
       return {'output': output, 'loss': loss}
 

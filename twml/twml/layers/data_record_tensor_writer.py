@@ -46,5 +46,4 @@ class DataRecordTensorWriter(Layer):
     Returns:
       The output from the layer
     """
-    write_op = libtwml.ops.data_record_tensor_writer(self.keys, values)
-    return write_op
+    return libtwml.ops.data_record_tensor_writer(self.keys, values)

@@ -72,10 +72,14 @@ def _infer_if_is_metric_larger_the_better(stopping_metric):
   if stopping_metric is None:
     raise ValueError("Error: Stopping Metric cannot be None")
   elif stopping_metric.startswith(LOSS):
-    logging.info("Interpreting {} to be a metric where larger numbers are worse".format(stopping_metric))
+    logging.info(
+        f"Interpreting {stopping_metric} to be a metric where larger numbers are worse"
+    )
     is_metric_larger_the_better = False
   else:
-    logging.info("Interpreting {} to be a metric where larger numbers are better".format(stopping_metric))
+    logging.info(
+        f"Interpreting {stopping_metric} to be a metric where larger numbers are better"
+    )
     is_metric_larger_the_better = True
   return is_metric_larger_the_better
 
@@ -93,7 +97,8 @@ def _check_whether_tree_should_expand(baseline_performance, computed_performance
       difference = -difference
 
   logging.info(
-    "Found a {} difference of {}. Sensitivity is {}.".format("positive" if is_metric_larger_the_better else "negative", difference, sensitivity))
+      f'Found a {"positive" if is_metric_larger_the_better else "negative"} difference of {difference}. Sensitivity is {sensitivity}.'
+  )
   return difference > sensitivity
 
 
@@ -118,19 +123,22 @@ def _get_extra_feature_group_performances(factory, trainer, parse_fn, extra_grou
   for group_name, raw_feature_regex_list in extra_groups.items():
     start = time.time()
     fnames = match_feature_regex_list(
-      features=feature_to_type.keys(),
-      feature_regex_list=[regex for regex in raw_feature_regex_list],
-      preprocess=False,
-      as_dict=False)
+        features=feature_to_type.keys(),
+        feature_regex_list=list(raw_feature_regex_list),
+        preprocess=False,
+        as_dict=False,
+    )
 
     fnames_ftypes = [(fname, feature_to_type[fname]) for fname in fnames]
 
-    logging.info("Extracted extra group {} with features {}".format(group_name, fnames_ftypes))
+    logging.info(
+        f"Extracted extra group {group_name} with features {fnames_ftypes}")
     extra_group_feature_performance_results[group_name] = _compute_multiple_permuted_performances_from_trainer(
       factory=factory, fname_ftypes=fnames_ftypes,
       trainer=trainer, parse_fn=parse_fn, record_count=record_count)
-    logging.info("\n\nImportances computed for {} in {} seconds \n\n".format(
-      group_name, int(time.time() - start)))
+    logging.info(
+        f"\n\nImportances computed for {group_name} in {int(time.time() - start)} seconds \n\n"
+    )
   return extra_group_feature_performance_results
 
 
@@ -175,12 +183,14 @@ def _feature_importances_tree_algorithm(
   out = {"None": baseline_performance}
 
   if stopping_metric not in baseline_performance:
-    raise ValueError("The stopping metric '{}' not found in baseline_performance. Metrics are {}".format(
-      stopping_metric, list(baseline_performance.keys())))
+    raise ValueError(
+        f"The stopping metric '{stopping_metric}' not found in baseline_performance. Metrics are {list(baseline_performance.keys())}"
+    )
 
   is_metric_larger_the_better = (
     is_metric_larger_the_better if is_metric_larger_the_better is not None else _infer_if_is_metric_larger_the_better(stopping_metric))
-  logging.info("Using {} as the stopping metric for the tree algorithm".format(stopping_metric))
+  logging.info(
+      f"Using {stopping_metric} as the stopping metric for the tree algorithm")
 
   feature_to_type = _get_feature_types_from_records(records=factory.records, fnames=fnames)
   all_feature_types = list(feature_to_type.items())
@@ -203,38 +213,39 @@ def _feature_importances_tree_algorithm(
 
       # Compute performance from permuting all features in fname_ftypes
       logging.info(
-        "\n\nComputing importances for {} ({}...). {} elements left in the queue \n\n".format(
-          prefix, fnames_ftypes[:5], feature_list_queue.qsize()))
+          f"\n\nComputing importances for {prefix} ({fnames_ftypes[:5]}...). {feature_list_queue.qsize()} elements left in the queue \n\n"
+      )
       start = time.time()
       computed_performance = _compute_multiple_permuted_performances_from_trainer(
         factory=factory, fname_ftypes=fnames_ftypes,
         trainer=trainer, parse_fn=parse_fn, record_count=record_count)
-      logging.info("\n\nImportances computed for {} in {} seconds \n\n".format(
-        prefix, int(time.time() - start)))
+      logging.info(
+          f"\n\nImportances computed for {prefix} in {int(time.time() - start)} seconds \n\n"
+      )
       if len(fnames_ftypes) == 1:
         individual_feature_performances[fnames_ftypes[0][0]] = computed_performance
       else:
         feature_group_performances[prefix] = computed_performance
       # Dig deeper into the features in fname_ftypes only if there is more than one feature in the
       #    list and the performance drop is nontrivial
-      logging.info("Checking performance for {} ({}...)".format(prefix, fnames_ftypes[:5]))
+      logging.info(f"Checking performance for {prefix} ({fnames_ftypes[:5]}...)")
       check = _check_whether_tree_should_expand(
         baseline_performance=baseline_performance, computed_performance=computed_performance,
         sensitivity=sensitivity, stopping_metric=stopping_metric, is_metric_larger_the_better=is_metric_larger_the_better)
       if len(fnames_ftypes) > 1 and check:
-        logging.info("Expanding {} ({}...)".format(prefix, fnames_ftypes[:5]))
+        logging.info(f"Expanding {prefix} ({fnames_ftypes[:5]}...)")
         feature_list_queue = _repartition(
           feature_list_queue=feature_list_queue, fnames_ftypes=fnames_ftypes, split_feature_group_on_period=split_feature_group_on_period)
       else:
-        logging.info("Not expanding {} ({}...)".format(prefix, fnames_ftypes[:5]))
+        logging.info(f"Not expanding {prefix} ({fnames_ftypes[:5]}...)")
 
   # Baseline performance is grouped in with individual_feature_importance_results
   individual_feature_performance_results = dict(
-    out, **{k: v for k, v in individual_feature_performances.items()})
-  group_feature_performance_results = {k: v for k, v in feature_group_performances.items()}
+      out, **dict(individual_feature_performances))
+  group_feature_performance_results = dict(feature_group_performances)
 
   if extra_groups is not None:
-    logging.info("Computing performances for extra groups {}".format(extra_groups.keys()))
+    logging.info(f"Computing performances for extra groups {extra_groups.keys()}")
     for group_name, performances in _get_extra_feature_group_performances(
         factory=factory,
         trainer=trainer,
@@ -261,14 +272,15 @@ def _feature_importances_serial_algorithm(
 
   out = {}
   for fname, ftype in list(feature_to_type.items()) + [(None, None)]:
-    logging.info("\n\nComputing importances for {}\n\n".format(fname))
+    logging.info(f"\n\nComputing importances for {fname}\n\n")
     start = time.time()
     fname_ftypes = [(fname, ftype)] if fname is not None else []
     out[str(fname)] = _compute_multiple_permuted_performances_from_trainer(
       factory=factory, fname_ftypes=fname_ftypes,
       trainer=trainer, parse_fn=parse_fn, record_count=record_count)
-    logging.info("\n\nImportances computed for {} in {} seconds \n\n".format(
-      fname, int(time.time() - start)))
+    logging.info(
+        f"\n\nImportances computed for {fname} in {int(time.time() - start)} seconds \n\n"
+    )
   # The serial algorithm does not compute group feature results.
   return {INDIVIDUAL: out, GROUP: {}}
 
@@ -297,27 +309,33 @@ def compute_feature_importances(
 
   # We only use the trainer's eval files if an override data_dir is not provided
   if data_dir is None:
-    logging.info("Using trainer._eval_files (found {} as files)".format(trainer._eval_files))
+    logging.info(
+        f"Using trainer._eval_files (found {trainer._eval_files} as files)")
     file_list = trainer._eval_files
   else:
-    logging.info("data_dir provided. Looking at {} for data.".format(data_dir))
+    logging.info(f"data_dir provided. Looking at {data_dir} for data.")
     file_list = None
 
   feature_config = feature_config or trainer._feature_config
   out = {}
   if not feature_config:
     logging.warn("WARN: Not computing feature importance because trainer._feature_config is None")
-    out = None
+    return None
   else:
     parse_fn = parse_fn if parse_fn is not None else feature_config.get_parse_fn()
     fnames = _get_feature_name_from_config(feature_config)
-    logging.info("Computing importances for {}".format(fnames))
-    logging.info("Using the {} feature importance computation algorithm".format(algorithm))
+    logging.info(f"Computing importances for {fnames}")
+    logging.info(f"Using the {algorithm} feature importance computation algorithm")
     algorithm = {
       SERIAL: _feature_importances_serial_algorithm,
       TREE: _feature_importances_tree_algorithm}[algorithm]
-    out = algorithm(data_dir=data_dir, trainer=trainer, parse_fn=parse_fn, fnames=fnames, file_list=file_list, datarecord_filter_fn=datarecord_filter_fn, **kwargs)
-  return out
+    return algorithm(data_dir=data_dir,
+                     trainer=trainer,
+                     parse_fn=parse_fn,
+                     fnames=fnames,
+                     file_list=file_list,
+                     datarecord_filter_fn=datarecord_filter_fn,
+                     **kwargs)
 
 
 def write_feature_importances_to_hdfs(
@@ -332,29 +350,32 @@ def write_feature_importances_to_hdfs(
     metric (str): The metric to write to tsv
   """
   # String formatting appends (Individual) or (Group) to feature name depending on type
-  perfs = {"{} ({})".format(k, importance_key) if k != "None" else k: v[metric]
-    for importance_key, importance_value in feature_importances.items()
-    for k, v in importance_value.items()}
+  perfs = {
+      f"{k} ({importance_key})" if k != "None" else k: v[metric]
+      for importance_key, importance_value in feature_importances.items()
+      for k, v in importance_value.items()
+  }
 
-  output_path = ("{}/feature_importances-{}".format(
-    trainer._save_dir[:-1] if trainer._save_dir.endswith('/') else trainer._save_dir,
-    output_path if output_path is not None else str(time.time())))
+  output_path = f"{trainer._save_dir[:-1] if trainer._save_dir.endswith('/') else trainer._save_dir}/feature_importances-{output_path if output_path is not None else str(time.time())}"
 
-  if len(perfs) > 0:
-    logging.info("Writing feature_importances for {} to hdfs".format(perfs.keys()))
-    entries = [
-      {
-        "name": name,
-        "drop": perfs["None"] - perfs[name],
-        "pdrop": 100 * (perfs["None"] - perfs[name]) / (perfs["None"] + 1e-8),
-        "perf": perfs[name]
-      } for name in perfs.keys()]
+  if perfs:
+    logging.info(f"Writing feature_importances for {perfs.keys()} to hdfs")
+    entries = [{
+        "name":
+        name,
+        "drop":
+        perfs["None"] - perfs[name],
+        "pdrop":
+        100 * (perfs["None"] - perfs[name]) / (perfs["None"] + 1e-8),
+        "perf":
+        perfs[name],
+    } for name in perfs]
     out = ["Name\tPerformance Drop\tPercent Performance Drop\tPerformance"]
-    for entry in sorted(entries, key=lambda d: d["drop"]):
-      out.append("{name}\t{drop}\t{pdrop}%\t{perf}".format(**entry))
+    out.extend("{name}\t{drop}\t{pdrop}%\t{perf}".format(**entry)
+               for entry in sorted(entries, key=lambda d: d["drop"]))
     logging.info("\n".join(out))
     write_list_to_hdfs_gfile(out, output_path)
-    logging.info("Wrote feature feature_importances to {}".format(output_path))
+    logging.info(f"Wrote feature feature_importances to {output_path}")
   else:
     logging.info("Not writing feature_importances to hdfs")
   return output_path
@@ -370,25 +391,27 @@ def write_feature_importances_to_ml_dash(trainer, feature_importances, feature_c
     feature_importances (dict, default=None): Dictionary of precomputed feature importances
     feature_importance_metric (str, default=None): The metric to write to ML Dashboard
   """
-  experiment_tracking_path = trainer.experiment_tracker.tracking_path\
-    if trainer.experiment_tracker.tracking_path\
-    else ExperimentTracker.guess_path(trainer._save_dir)
+  experiment_tracking_path = (trainer.experiment_tracker.tracking_path or
+                              ExperimentTracker.guess_path(trainer._save_dir))
 
-  logging.info('Computing feature importances for run: {}'.format(experiment_tracking_path))
+  logging.info(
+      f'Computing feature importances for run: {experiment_tracking_path}')
 
   feature_importance_list = []
   for key in feature_importances:
     for feature, imps in feature_importances[key].items():
-      logging.info('FEATURE NAME: {}'.format(feature))
+      logging.info(f'FEATURE NAME: {feature}')
       feature_name = feature.split(' (').pop(0)
       for metric_name, value in imps.items():
         try:
           imps[metric_name] = float(value)
-          logging.info('Wrote feature importance value {} for metric: {}'.format(str(value), metric_name))
+          logging.info(
+              f'Wrote feature importance value {str(value)} for metric: {metric_name}'
+          )
         except Exception as ex:
-          logging.error("Skipping writing metric:{} to ML Metastore due to invalid metric value: {} or value type: {}. Exception: {}".format(metric_name, str(value), type(value), str(ex)))
-          pass
-
+          logging.error(
+              f"Skipping writing metric:{metric_name} to ML Metastore due to invalid metric value: {str(value)} or value type: {type(value)}. Exception: {str(ex)}"
+          )
       feature_importance_list.append(FeatureImportance(
         run_id=experiment_tracking_path,
         feature_name=_process_feature_name_for_mldash(feature_name),
@@ -410,5 +433,6 @@ def write_feature_importances_to_ml_dash(trainer, feature_importances, feature_c
     logging.info('Writing feature names to ML Metastore')
     client.add_feature_names(feature_names)
   except (HTTPError, RetryError) as err:
-    logging.error('Feature importance is not being written due to: '
-                  'HTTPError when attempting to write to ML Metastore: \n{}.'.format(err))
+    logging.error(
+        f'Feature importance is not being written due to: HTTPError when attempting to write to ML Metastore: \n{err}.'
+    )

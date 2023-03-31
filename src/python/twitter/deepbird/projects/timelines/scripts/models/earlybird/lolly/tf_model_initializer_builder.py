@@ -51,24 +51,21 @@ class TFModelInitializerBuilder:
     if len(discretized_features) == 0:
       return
 
-    num_bins = max([len(bins) for bins in discretized_features.values()])
+    num_bins = max(len(bins) for bins in discretized_features.values())
 
-    bin_boundaries_and_weights = {}
-    for feature_name in discretized_features:
-      bin_boundaries_and_weights[feature_name] = self._extract_bin_boundaries_and_weights(
-        discretized_features[feature_name], num_bins)
-
+    bin_boundaries_and_weights = {
+        feature_name: self._extract_bin_boundaries_and_weights(
+            discretized_features[feature_name], num_bins)
+        for feature_name in discretized_features
+    }
     tf_model_initializer["features"]["discretized"] = bin_boundaries_and_weights
 
   def _dedup_binary_features(self, binary_features, discretized_features):
     [binary_features.pop(feature_name) for feature_name in discretized_features]
 
   def _extract_bin_boundaries_and_weights(self, discretized_feature_buckets, num_bins):
-    bin_boundary_weight_pairs = []
-
-    for bucket in discretized_feature_buckets:
-      bin_boundary_weight_pairs.append([bucket[0], bucket[2]])
-
+    bin_boundary_weight_pairs = [[bucket[0], bucket[2]]
+                                 for bucket in discretized_feature_buckets]
     # The default DBv2 HashingDiscretizer bin membership interval is (a, b]
     #
     # The Earlybird Lolly prediction engine discretizer bin membership interval is [a, b)

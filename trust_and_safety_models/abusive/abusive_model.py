@@ -92,17 +92,16 @@ for record in train_ds:
   break
 
 def get_positive_weights():
-  """Computes positive weights used for class imbalance from training data."""
-  label_weights_df = utils.get_label_weights(
-      "tos-data-media-full",
-      project_id="twttr-abusive-interact-prod",
-      dataset_id="tos_policy"
-  )
-  pos_weight_tensor = tf.cast(
-      label_weights_df.sort_values(by='label').positive_class_weight,
-      dtype=tf.float32
-  )
-  return pos_weight_tensor
+    """Computes positive weights used for class imbalance from training data."""
+    label_weights_df = utils.get_label_weights(
+        "tos-data-media-full",
+        project_id="twttr-abusive-interact-prod",
+        dataset_id="tos_policy"
+    )
+    return tf.cast(
+        label_weights_df.sort_values(by='label').positive_class_weight,
+        dtype=tf.float32,
+    )
 
 pos_weight_tensor = get_positive_weights()
 print(pos_weight_tensor)
@@ -263,9 +262,9 @@ subsets = {"test": test,
           "test_no_media": test_no_media,
           "test_media_not_nsfw": test_media_not_nsfw}
 
-metrics = {}
-for name, df in subsets.items():
-  metrics[name] = eval_model(candidate_model, df)
+metrics = {
+    name: eval_model(candidate_model, df) for name, df in subsets.items()
+}
 [(name, m.pr_auc) for name, m in metrics.items()]
 for name, x in [(name, m.pr_auc.to_string(index=False).strip().split("\n")) for name, m in metrics.items()]:
   print(name)

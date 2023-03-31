@@ -108,13 +108,13 @@ def print_data_example(logits, lolly_activations, features):
   )
 
 def earlybird_output_fn(graph_output):
-  export_outputs = {
-    tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY:
-      tf.estimator.export.PredictOutput(
-        {"prediction": tf.identity(graph_output["output"], name="output_scores")}
-      )
+  return {
+      tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY:
+      tf.estimator.export.PredictOutput({
+          "prediction":
+          tf.identity(graph_output["output"], name="output_scores")
+      })
   }
-  return export_outputs
 
 if __name__ == "__main__":
   parser = DataRecordTrainer.add_parser_arguments()
@@ -183,7 +183,9 @@ if __name__ == "__main__":
   trainingStartTime = datetime.now()
   trainer.train_and_evaluate(train_input_fn=train_input_fn, eval_input_fn=eval_input_fn)
   trainingEndTime = datetime.now()
-  logging.info("Training and Evaluation time: " + str(trainingEndTime - trainingStartTime))
+  logging.info(
+      f"Training and Evaluation time: {str(trainingEndTime - trainingStartTime)}"
+  )
 
   if trainer._estimator.config.is_chief:
     serving_input_in_earlybird = {
@@ -209,4 +211,4 @@ if __name__ == "__main__":
       export_output_fn=earlybird_output_fn,
       feature_spec=feature_config.get_feature_spec()
     )
-    logging.info("The export model path is: " + opt.export_dir)
+    logging.info(f"The export model path is: {opt.export_dir}")

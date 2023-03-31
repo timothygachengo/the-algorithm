@@ -111,7 +111,7 @@ class FullSparse(Layer):
     self.activation = activation
     self.use_sparse_grads = use_sparse_grads
     self.num_partitions = num_partitions
-    if partition_axis != 0 and partition_axis != 1:
+    if partition_axis not in [0, 1]:
       raise ValueError('partition_axis must be 0 or 1')
     self.partition_axis = partition_axis
     self.use_binary_values = use_binary_values
@@ -144,7 +144,7 @@ class FullSparse(Layer):
       for other_shape in input_shapes[1:]:
         is_compatible &= input_shape.is_compatible_with(other_shape)
       if not is_compatible:
-        raise ValueError("Input shapes %s are not compatible." % input_shapes)
+        raise ValueError(f"Input shapes {input_shapes} are not compatible.")
     else:
       input_shape = input_shapes
 
@@ -190,10 +190,8 @@ class FullSparse(Layer):
     if self.num_partitions:
       partition_axis = int(self.partition_axis)
       partitioner = tf.fixed_size_partitioner(self.num_partitions, axis=partition_axis)
-    else:
-      # Regular variables do not like it when you pass both constant tensors and shape
-      if not callable(self.weight_initializer):
-        shape = None
+    elif not callable(self.weight_initializer):
+      shape = None
 
     self._make_weight_var(shape, partitioner)
 
@@ -237,24 +235,27 @@ class FullSparse(Layer):
         raise ValueError("#inputs is %d while #use_binary_values is %d"
                          % (num_inputs, len(use_binary_values)))
 
-      outputs = []
-      for n in range(num_inputs):
-        outputs.append(sparse_dense_matmul(inputs[n], self.weight,
-                                           self.use_sparse_grads,
-                                           use_binary_values[n],
-                                           name='sparse_mm_' + str(n),
-                                           partition_axis=self.partition_axis,
-                                           num_partitions=self.num_partitions,
-                                           compress_ids=self._use_compression,
-                                           cast_indices_dtype=self._cast_indices_dtype,
-                                           use_binary_sparse_dense_matmul=self.use_binary_sparse_dense_matmul))
+      outputs = [
+          sparse_dense_matmul(
+              inputs[n],
+              self.weight,
+              self.use_sparse_grads,
+              use_binary_values[n],
+              name=f'sparse_mm_{str(n)}',
+              partition_axis=self.partition_axis,
+              num_partitions=self.num_partitions,
+              compress_ids=self._use_compression,
+              cast_indices_dtype=self._cast_indices_dtype,
+              use_binary_sparse_dense_matmul=self.use_binary_sparse_dense_matmul,
+          ) for n in range(num_inputs)
+      ]
       outputs = tf.accumulate_n(outputs)
+    elif isinstance(self.use_binary_values, (list, tuple)):
+      raise ValueError(
+          f"use_binary_values can not be {type(self.use_binary_values)} when inputs is {type(inputs)}"
+      )
+
     else:
-
-      if isinstance(self.use_binary_values, (list, tuple)):
-        raise ValueError("use_binary_values can not be %s when inputs is %s" %
-                         (type(self.use_binary_values), type(inputs)))
-
       outputs = sparse_dense_matmul(inputs, self.weight,
                                     self.use_sparse_grads,
                                     self.use_binary_values,
@@ -268,9 +269,7 @@ class FullSparse(Layer):
     if self.bias is not None:
       outputs = tf.nn.bias_add(outputs, self.bias)
 
-    if self.activation is not None:
-      return self.activation(outputs)  # pylint: disable=not-callable
-    return outputs
+    return self.activation(outputs) if self.activation is not None else outputs
 
 
 def full_sparse(

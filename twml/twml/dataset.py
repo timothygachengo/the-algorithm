@@ -70,9 +70,9 @@ def downsample_dataset(dataset, sample_rate, rate_name):
   if sample_rate is None or sample_rate == 1.0:
     return dataset
   elif not isinstance(sample_rate, numbers.Real):
-    raise TypeError("dataset %s must be a real number" % rate_name)
+    raise TypeError(f"dataset {rate_name} must be a real number")
   elif sample_rate <= 0 or sample_rate > 1:
-    raise ValueError("dataset %s must be in range (0, 1])" % rate_name)
+    raise ValueError(f"dataset {rate_name} must be in range (0, 1])")
   return dataset.filter(lambda _: tf.squeeze(tf.random_uniform([1])) < sample_rate)
 
 
@@ -237,7 +237,7 @@ def cx_zk_path(path):
   if path is None:
     raise ValueError("Path for zookeeper dataset pointer is None. You must specify a path.")
   return_path = "/".join([DEFAULT_ZOOKEEPER_BASE_ZNODE, path])
-  logging.info("Zookeeper path is: {}".format(return_path))
+  logging.info(f"Zookeeper path is: {return_path}")
   return return_path
 
 
@@ -328,11 +328,10 @@ def zookeeper_ordered_dataset(
         counter_pre_value = counter_pre_value % len(my_files)
       if counter_pre_value >= len(my_files):
         break
-      else:
-        chosen_file = my_files[counter_pre_value]
-        if verbose:
-          logging.info("{}. yielding {}".format(counter_pre_value, chosen_file))
-        yield chosen_file
+      chosen_file = my_files[counter_pre_value]
+      if verbose:
+        logging.info("{}. yielding {}".format(counter_pre_value, chosen_file))
+      yield chosen_file
     zk.stop()
 
   files = tf.data.Dataset.from_generator(zk_index_generator, tf.string)

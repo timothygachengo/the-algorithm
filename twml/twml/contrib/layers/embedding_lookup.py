@@ -91,7 +91,7 @@ def load_initializers_from_csv(
     embedding_file = os.path.basename(embedding_path)
     match = re.search(r"[^\d]([\d]+)d", embedding_file)
     if match is not None:
-      embedding_size = int(match.group(1))
+      embedding_size = int(match[1])
 
   if embedding_size is not None and not isinstance(embedding_size, int):
     raise RuntimeError(
@@ -107,12 +107,12 @@ def load_initializers_from_csv(
     )
 
   embedding_path = embedding_paths[0]
-  logging.info("Reading embeddings file from path %s.." % embedding_path)
+  logging.info(f"Reading embeddings file from path {embedding_path}..")
 
   with tf.io.gfile.GFile(embedding_path) as f:
     lines = f.readlines()
 
-  logging.info("Done reading embeddings file from path %s." % embedding_path)
+  logging.info(f"Done reading embeddings file from path {embedding_path}.")
 
   logging.info("Parsing vocbulary and embeddings...")
 
@@ -138,7 +138,7 @@ def load_initializers_from_csv(
         word_weights = np.asarray(word_weights, dtype=np.float32)
         vocab[word] = word_weights
       except ValueError:
-        logging.info("Wasn't able to load embeddings for word '%s'. Ignoring it" % word)
+        logging.info(f"Wasn't able to load embeddings for word '{word}'. Ignoring it")
 
       vocab_len = len(vocab)
       if vocab_size > 0 and vocab_len == vocab_size:
@@ -148,7 +148,7 @@ def load_initializers_from_csv(
         logging.info("Loaded %d words into vocab" % vocab_len)
 
     else:
-      logging.info("found duplicate word: %s" % word)
+      logging.info(f"found duplicate word: {word}")
 
   if not is_user_vocab:
     vocab[''] = np.random.randn(embedding_size)
@@ -335,10 +335,8 @@ class EmbeddingLookup(twml.layers.Layer):
     if self.num_partitions:
       partition_axis = int(self.partition_axis)
       partitioner = tf.fixed_size_partitioner(self.num_partitions, axis=partition_axis)
-    else:
-      # Regular variables do not like it when you pass both constant tensors and shape
-      if not callable(self.weight_initializer):
-        shape = None
+    elif not callable(self.weight_initializer):
+      shape = None
 
     self.vocab = self.add_variable(
       'vocab',

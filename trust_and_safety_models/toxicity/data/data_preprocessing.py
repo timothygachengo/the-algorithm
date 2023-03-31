@@ -10,7 +10,7 @@ TOXIC_35_set = set(TOXIC_35)
 
 url_group = r"(\bhttps?:\/\/\S+)"
 mention_group = r"(\B@\S+)"
-urls_mentions_re = re.compile(url_group + r"|" + mention_group, re.IGNORECASE)
+urls_mentions_re = re.compile(f"{url_group}|{mention_group}", re.IGNORECASE)
 url_re = re.compile(url_group, re.IGNORECASE)
 mention_re = re.compile(mention_group, re.IGNORECASE)
 newline_re = re.compile(r"\n+", re.IGNORECASE)
@@ -55,9 +55,7 @@ class DataframeCleaner(ABC):
 def mapping_func(el):
   if el.aggregated_content in TOXIC_35_set:
     return 2
-  if el.label == 1:
-    return 1
-  return 0
+  return 1 if el.label == 1 else 0
 
 
 class DefaultENNoPreprocessor(DataframeCleaner):

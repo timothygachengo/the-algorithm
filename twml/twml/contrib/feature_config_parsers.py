@@ -16,10 +16,12 @@ def _get_config_version(config_dict):
   }
   if "class" not in doc:
     raise ValueError("'class' key not found")
-  if doc["class"] not in supported_classes.keys():
-    raise ValueError("Class %s not supported. Supported clases are %s"
-                     % (doc["class"], supported_classes.keys()))
-  return supported_classes[doc["class"]]
+  if doc["class"] in supported_classes:
+    return supported_classes[doc["class"]]
+  else:
+    raise ValueError(
+        f'Class {doc["class"]} not supported. Supported clases are {supported_classes.keys()}'
+    )
 
 
 def _validate_config_dict_v1(config_dict):
@@ -29,7 +31,7 @@ def _validate_config_dict_v1(config_dict):
   doc = config_dict
 
   def malformed_error(msg):
-    raise ValueError("twml.FeatureConfig: Malformed feature_spec. %s" % msg)
+    raise ValueError(f"twml.FeatureConfig: Malformed feature_spec. {msg}")
 
   if doc["class"] != "twml.FeatureConfig":
     malformed_error("'class' is not twml.FeatureConfig")
@@ -41,15 +43,14 @@ def _validate_config_dict_v1(config_dict):
     dict_keys = ["features", "labels", "weight", "tensors", "sparse_tensors"]
     for key in dict_keys:
       if key not in doc:
-        malformed_error("'%s' key not found" % key)
+        malformed_error(f"'{key}' key not found")
       if type(doc[key]) != dict:
-        malformed_error("'%s' is not a dict" % key)
+        malformed_error(f"'{key}' is not a dict")
     if "filters" not in doc:
       malformed_error("'filters' key not found")
     elif type(doc["filters"]) != list:
       malformed_error("'filters' is not a list")
 
-  # validate spec provided by modeler
   elif doc["format"] == "manual":
     raise NotImplementedError("Manual config support not yet implemented")
   else:
@@ -63,7 +64,7 @@ def _validate_config_dict_v2(config_dict):
   doc = config_dict
 
   def malformed_error(msg):
-    raise ValueError("twml.contrib.FeatureConfig: Malformed feature_spec. %s" % msg)
+    raise ValueError(f"twml.contrib.FeatureConfig: Malformed feature_spec. {msg}")
 
   if doc["class"] != "twml.contrib.FeatureConfig":
     malformed_error("'class' is not twml.contrib.FeatureConfig")
@@ -75,17 +76,16 @@ def _validate_config_dict_v2(config_dict):
     dict_keys = ["features", "labels", "weight", "tensors", "sparseTensors", "discretizeConfig"]
     for key in dict_keys:
       if key not in doc:
-        malformed_error("'%s' key not found" % key)
+        malformed_error(f"'{key}' key not found")
       if type(doc[key]) != dict:
-        malformed_error("'%s' is not a dict" % key)
+        malformed_error(f"'{key}' is not a dict")
     list_keys = ["sparseFeatureGroups", "denseFeatureGroups", "denseFeatures", "images", "filters"]
     for key in list_keys:
       if key not in doc:
-        malformed_error("'%s' key not found" % key)
+        malformed_error(f"'{key}' key not found")
       if type(doc[key]) != list:
-        malformed_error("'%s' is not a list" % key)
+        malformed_error(f"'{key}' is not a list")
 
-  # validate spec provided by modeler
   elif doc["format"] == "manual":
     raise NotImplementedError("Manual config support not yet implemented")
   else:
@@ -95,100 +95,97 @@ def _validate_config_dict_v2(config_dict):
 def _create_feature_config_v1(config_dict, data_spec_path):
   fc_builder = FeatureConfigBuilder(data_spec_path)
 
-  if config_dict["format"] == "exported":
-    # add features
-    for feature_info in config_dict["features"].values():
-      feature_name = re.escape(feature_info["featureName"])
-      feature_group = feature_info["featureGroup"]
-      fc_builder.add_feature(feature_name, feature_group)
-    # add labels
-    labels = []
-    for label_info in config_dict["labels"].values():
-      labels.append(label_info["featureName"])
-    fc_builder.add_labels(labels)
-    # feature filters
-    for feature_name in config_dict["filters"]:
-      fc_builder.add_filter(feature_name)
-    # weight
-    if config_dict["weight"]:
-      weight_feature = list(config_dict["weight"].values())[0]["featureName"]
-      fc_builder.define_weight(weight_feature)
-  else:
-    raise ValueError("Format '%s' not implemented" % config_dict["format"])
+  if config_dict["format"] != "exported":
+    raise ValueError(f"""Format '{config_dict["format"]}' not implemented""")
 
+  # add features
+  for feature_info in config_dict["features"].values():
+    feature_name = re.escape(feature_info["featureName"])
+    feature_group = feature_info["featureGroup"]
+    fc_builder.add_feature(feature_name, feature_group)
+  labels = [
+      label_info["featureName"]
+      for label_info in config_dict["labels"].values()
+  ]
+  fc_builder.add_labels(labels)
+  # feature filters
+  for feature_name in config_dict["filters"]:
+    fc_builder.add_filter(feature_name)
+  # weight
+  if config_dict["weight"]:
+    weight_feature = list(config_dict["weight"].values())[0]["featureName"]
+    fc_builder.define_weight(weight_feature)
   return fc_builder.build()
 
 
 def _create_feature_config_v2(config_dict, data_spec_path):
   fc_builder = FeatureConfigBuilderV2(data_spec_path)
 
-  if config_dict["format"] == "exported":
-    # add sparse group extraction configs
-    for sparse_group in config_dict["sparseFeatureGroups"]:
-      fids = sparse_group["features"].keys()
-      fnames = [sparse_group["features"][fid]["featureName"] for fid in fids]
-      fc_builder.extract_features_as_hashed_sparse(
-        feature_regexes=[re.escape(fname) for fname in fnames],
-        output_tensor_name=sparse_group["outputName"],
-        hash_space_size_bits=sparse_group["hashSpaceBits"],
-        discretize_num_bins=sparse_group["discretize"]["numBins"],
-        discretize_output_size_bits=sparse_group["discretize"]["outputSizeBits"],
-        discretize_type=sparse_group["discretize"]["type"],
-        type_filter=sparse_group["filterType"])
+  if config_dict["format"] != "exported":
+    raise ValueError(f"""Format '{config_dict["format"]}' not implemented""")
 
-    # add dense group extraction configs
-    for dense_group in config_dict["denseFeatureGroups"]:
-      fids = dense_group["features"].keys()
-      fnames = [dense_group["features"][fid]["featureName"] for fid in fids]
-      fc_builder.extract_feature_group(
-        feature_regexes=[re.escape(fname) for fname in fnames],
-        group_name=dense_group["outputName"],
-        type_filter=dense_group["filterType"],
-        default_value=dense_group["defaultValue"])
+  # add sparse group extraction configs
+  for sparse_group in config_dict["sparseFeatureGroups"]:
+    fids = sparse_group["features"].keys()
+    fnames = [sparse_group["features"][fid]["featureName"] for fid in fids]
+    fc_builder.extract_features_as_hashed_sparse(
+      feature_regexes=[re.escape(fname) for fname in fnames],
+      output_tensor_name=sparse_group["outputName"],
+      hash_space_size_bits=sparse_group["hashSpaceBits"],
+      discretize_num_bins=sparse_group["discretize"]["numBins"],
+      discretize_output_size_bits=sparse_group["discretize"]["outputSizeBits"],
+      discretize_type=sparse_group["discretize"]["type"],
+      type_filter=sparse_group["filterType"])
+
+  # add dense group extraction configs
+  for dense_group in config_dict["denseFeatureGroups"]:
+    fids = dense_group["features"].keys()
+    fnames = [dense_group["features"][fid]["featureName"] for fid in fids]
+    fc_builder.extract_feature_group(
+      feature_regexes=[re.escape(fname) for fname in fnames],
+      group_name=dense_group["outputName"],
+      type_filter=dense_group["filterType"],
+      default_value=dense_group["defaultValue"])
 
     # add dense feature configs
-    for dense_features in config_dict["denseFeatures"]:
-      fids = dense_features["features"].keys()
-      fnames = [dense_features["features"][fid]["featureName"] for fid in fids]
-      default_value = dense_features["defaultValue"]
-      if len(fnames) == 1 and type(default_value) != dict:
-        fc_builder.extract_feature(
+  for dense_features in config_dict["denseFeatures"]:
+    fids = dense_features["features"].keys()
+    fnames = [dense_features["features"][fid]["featureName"] for fid in fids]
+    default_value = dense_features["defaultValue"]
+    if len(fnames) == 1 and type(default_value) != dict:
+      fc_builder.extract_feature(
           feature_name=re.escape(fnames[0]),
           expected_shape=dense_features["expectedShape"],
-          default_value=dense_features["defaultValue"])
-      else:
-        fc_builder.extract_features(
-          feature_regexes=[re.escape(fname) for fname in fnames],
-          default_value_map=dense_features["defaultValue"])
-
-    # add image feature configs
-    for image in config_dict["images"]:
-      fc_builder.extract_image(
-        feature_name=image["featureName"],
-        preprocess=image["preprocess"],
-        out_type=tf.as_dtype(image["outType"].lower()),
-        channels=image["channels"],
-        default_image=image["defaultImage"],
+          default_value=default_value,
       )
+    else:
+      fc_builder.extract_features(
+          feature_regexes=[re.escape(fname) for fname in fnames],
+          default_value_map=default_value,
+      )
+  # add image feature configs
+  for image in config_dict["images"]:
+    fc_builder.extract_image(
+      feature_name=image["featureName"],
+      preprocess=image["preprocess"],
+      out_type=tf.as_dtype(image["outType"].lower()),
+      channels=image["channels"],
+      default_image=image["defaultImage"],
+    )
 
-    # add other tensor features (non-image)
-    tensor_fnames = []
-    image_fnames = [img["featureName"] for img in config_dict["images"]]
-    for tensor_fname in config_dict["tensors"]:
-      if tensor_fname not in image_fnames:
-        tensor_fnames.append(tensor_fname)
-    for sparse_tensor_fname in config_dict["sparseTensors"]:
-      tensor_fnames.append(sparse_tensor_fname)
-    fc_builder.extract_tensors(tensor_fnames)
+  image_fnames = [img["featureName"] for img in config_dict["images"]]
+  tensor_fnames = [
+      tensor_fname for tensor_fname in config_dict["tensors"]
+      if tensor_fname not in image_fnames
+  ]
+  tensor_fnames.extend(iter(config_dict["sparseTensors"]))
+  fc_builder.extract_tensors(tensor_fnames)
 
-    # add labels
-    labels = []
-    for label_info in config_dict["labels"].values():
-      labels.append(label_info["featureName"])
-    fc_builder.add_labels(labels)
-
-  else:
-    raise ValueError("Format '%s' not implemented" % config_dict["format"])
+  labels = [
+      label_info["featureName"]
+      for label_info in config_dict["labels"].values()
+  ]
+  fc_builder.add_labels(labels)
 
   return fc_builder.build()
 

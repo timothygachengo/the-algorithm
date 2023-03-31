@@ -278,8 +278,8 @@ class Trainer(object):
     self._name = name
     self._build_graph_fn = build_graph_fn
     self._metric_fn = metric_fn
-    self._tensorboard_handle = None
     self._current_estimator_spec = None  # holds the current estimator spec
+    self._tensorboard_handle = None
     self._profiler_steps = profiler_steps
     self._export_output_fn = None
     self._is_early_stopping = False
@@ -299,7 +299,7 @@ class Trainer(object):
     self._params = params
     self.check_params()
 
-    self._using_hogwild = True if os.environ.get('TWML_HOGWILD_PORTS') else False
+    self._using_hogwild = bool(os.environ.get('TWML_HOGWILD_PORTS'))
     # configure Hogwild (needs to be called before RunConfig is created)
     self._hogwild_setup()
 
@@ -309,13 +309,12 @@ class Trainer(object):
       # This option ensures the gpu memory grows dynamically instead.
       session_config.gpu_options.allow_growth = True  # pylint: disable=no-member
 
-      if 'TWML_NUM_CPUS' in os.environ:
+      if 'TWML_NUM_CPUS' in os.environ and params.num_mkl_threads > 1:
+        os.environ["OMP_NUM_THREADS"] = str(params.num_mkl_threads)
+        os.environ["MKL_NUM_THREADS"] = str(params.num_mkl_threads)
         num_available_cpus = int(os.environ.get("TWML_MESOS_CPU", "8"))
-        if params.num_mkl_threads > 1:
-          os.environ["OMP_NUM_THREADS"] = str(params.num_mkl_threads)
-          os.environ["MKL_NUM_THREADS"] = str(params.num_mkl_threads)
-          session_config.inter_op_parallelism_threads = num_available_cpus // params.num_mkl_threads
-          session_config.intra_op_parallelism_threads = params.num_mkl_threads
+        session_config.inter_op_parallelism_threads = num_available_cpus // params.num_mkl_threads
+        session_config.intra_op_parallelism_threads = params.num_mkl_threads
 
       run_config = tf.estimator.RunConfig(
         session_config=session_config,
@@ -324,8 +323,9 @@ class Trainer(object):
         save_checkpoints_secs=self._params.get('save_checkpoints_secs', 600),
         tf_random_seed=self._tf_random_seed())
     elif not isinstance(run_config, tf.estimator.RunConfig):
-      raise ValueError("Expecting run_config argument of type None or tf.estimator.RunConfig"
-        "Got %s instead." % type(run_config).__name__)
+      raise ValueError(
+          f"Expecting run_config argument of type None or tf.estimator.RunConfigGot {type(run_config).__name__} instead."
+      )
     elif os.environ.get('TWML_HOGWILD_PORTS'):
       raise ValueError("Custom RunConfig not supported with Hogwild")
 
@@ -350,8 +350,9 @@ class Trainer(object):
 
     # overwrite the current save_dir
     if self._params.get('overwrite_save_dir') and tf.io.gfile.exists(self._save_dir):
-      logging.info("Trainer overwriting existing save directory: %s (params.overwrite_save_dir)"
-                   % self._save_dir)
+      logging.info(
+          f"Trainer overwriting existing save directory: {self._save_dir} (params.overwrite_save_dir)"
+      )
       # if distributed or hogwild:
       if self._params.get('distributed', False):
         # sleep for 30 seconds to allow each worker to get to this point.
@@ -374,9 +375,9 @@ class Trainer(object):
 
     checkpoint = os.path.join(self._save_dir, 'checkpoint')
     if tf.io.gfile.exists(checkpoint):
-      logging.info("The provided save_dir directory %s already exists."
-                   " Training will be resumed."
-                   % checkpoint)
+      logging.info(
+          f"The provided save_dir directory {checkpoint} already exists. Training will be resumed."
+      )
 
     self._maybe_restore_checkpoint = lambda: init_from_checkpoint(init_from_dir, init_map)
 
@@ -427,14 +428,12 @@ class Trainer(object):
     else:
       self._params.add_hparam('distributed', True)
 
-    ports = os.environ.get('TWML_HOGWILD_PORTS')
-    if ports:
+    if ports := os.environ.get('TWML_HOGWILD_PORTS'):
       self._ports = [int(port) for port in ports.strip().split(",")]
       if (self._num_workers + 1!= len(self._ports)):
         raise ValueError("Number of (workers + PS) and ports need to match")
-    else:
-      if self._num_workers > 1:
-        raise ValueError("TWML_HOGWILD_PORTS needs to be set to use hogwild training")
+    elif self._num_workers > 1:
+      raise ValueError("TWML_HOGWILD_PORTS needs to be set to use hogwild training")
 
     # Split the number of data threads across multiple workers
     num_threads = self._params.get('num_threads')
@@ -460,14 +459,13 @@ class Trainer(object):
     """ Verify that params has the correct key,values """
     param_values = self._params.values()
 
-    if 'train_batch_size' in param_values:
-      if not isinstance(self._params.train_batch_size, int):
-        raise ValueError("Expecting params.train_batch_size to be an integer.")
-      if self._params.train_batch_size <= 0:
-        raise ValueError("train_batch_size needs to be positive")
-    else:
+    if 'train_batch_size' not in param_values:
       raise ValueError("train_batch_size needs to be present in params")
 
+    if not isinstance(self._params.train_batch_size, int):
+      raise ValueError("Expecting params.train_batch_size to be an integer.")
+    if self._params.train_batch_size <= 0:
+      raise ValueError("train_batch_size needs to be positive")
     if 'eval_batch_size' in param_values:
       if not isinstance(self._params.eval_batch_size, int):
         raise ValueError("Expecting params.eval_batch_size to be an integer.")
@@ -491,14 +489,13 @@ class Trainer(object):
     ps = host % self._ports[0]
     chief = host % self._ports[1]
     workers = ", ".join([host % port for port in self._ports[2:]])
-    config = _CLUSTER_TEMPLATE.substitute(
-      PS=ps,
-      CHIEF=chief,
-      WORKER=workers,
-      TYPE=name,
-      INDEX=index,
+    return _CLUSTER_TEMPLATE.substitute(
+        PS=ps,
+        CHIEF=chief,
+        WORKER=workers,
+        TYPE=name,
+        INDEX=index,
     )
-    return config
 
   @property
   def current_estimator_spec(self):
@@ -604,18 +601,18 @@ class Trainer(object):
     if params.get('show_optimizer_summaries'):
       summaries = OPTIMIZER_SUMMARIES
 
-    train_op = optimize_loss(
-      loss=loss,
-      global_step=tf.train.get_global_step(),
-      optimizer=optimizer,
-      learning_rate=params.learning_rate,
-      summaries=summaries,
-      colocate_gradients_with_ops=True,
-      gradient_noise_scale=params.get('gradient_noise_scale'),
-      clip_gradients=params.get('clip_gradients'),
-      learning_rate_decay_fn=twml.learning_rate_decay.get_learning_rate_decay_fn(params)
+    return optimize_loss(
+        loss=loss,
+        global_step=tf.train.get_global_step(),
+        optimizer=optimizer,
+        learning_rate=params.learning_rate,
+        summaries=summaries,
+        colocate_gradients_with_ops=True,
+        gradient_noise_scale=params.get('gradient_noise_scale'),
+        clip_gradients=params.get('clip_gradients'),
+        learning_rate_decay_fn=twml.learning_rate_decay.
+        get_learning_rate_decay_fn(params),
     )
-    return train_op
 
   def export_model_effects(self, export_path, feature_spec=None, log_features=True):
 
@@ -642,16 +639,13 @@ class Trainer(object):
 
   @property
   def best_or_latest_checkpoint(self):
-    if self._is_early_stopping:
-      best_checkpoint_path = os.path.join(self._save_dir, "best_checkpoint")
-      checkpoint_path = tf.train.latest_checkpoint(best_checkpoint_path)
-      # Return best checkpoint if necessary
-      if checkpoint_path:
-        return checkpoint_path
-      else:
-        raise ValueError("Best checkpoint not found at %s." % best_checkpoint_path)
-    else:  # Fallback to latest checkpoint from save directory
+    if not self._is_early_stopping:
       return self.latest_checkpoint
+    best_checkpoint_path = os.path.join(self._save_dir, "best_checkpoint")
+    if checkpoint_path := tf.train.latest_checkpoint(best_checkpoint_path):
+      return checkpoint_path
+    else:
+      raise ValueError(f"Best checkpoint not found at {best_checkpoint_path}.")
 
   @property
   def latest_checkpoint(self):
@@ -702,8 +696,8 @@ class Trainer(object):
 
     if not callable(self._export_output_fn):
       raise RuntimeError(
-        "Expecting export_output_fn function. Got %s."
-        % type(self._export_output_fn).__name__)
+          f"Expecting export_output_fn function. Got {type(self._export_output_fn).__name__}."
+      )
 
     if export_dir:
       export_dir = sanitize_hdfs_path(export_dir)
@@ -720,7 +714,7 @@ class Trainer(object):
       checkpoint_path=checkpoint_path)
 
     # export_path is bytes, need to convert to string for python3 to work.
-    logging.info("The exported model path is: " + str(export_path))
+    logging.info(f"The exported model path is: {str(export_path)}")
 
     self.export_model_effects(export_path, feature_spec, log_features)
 
@@ -744,18 +738,14 @@ class Trainer(object):
         HParams object containing hyper-parameters.
     """
     # pylint: disable=too-many-branches
-    if isinstance(features, dict):
-      weights = features.get('weights', None)
-    else:
-      weights = None
-
-    with tf.variable_scope(self._name + '/model'):
+    weights = features.get('weights', None) if isinstance(features, dict) else None
+    with tf.variable_scope(f'{self._name}/model'):
       graph_output = self._build_graph_fn(features, labels, mode, params, config)
       loss = graph_output['loss'] if 'loss' in graph_output else None
 
     self._maybe_restore_checkpoint()
 
-    with tf.variable_scope(self._name + '/optim'):
+    with tf.variable_scope(f'{self._name}/optim'):
       train_op = None
       if mode == tf.estimator.ModeKeys.TRAIN:
         if 'train_op' in graph_output:
@@ -768,8 +758,9 @@ class Trainer(object):
           metric_ops = self._metric_fn(graph_output=graph_output, labels=labels, weights=weights)
           for metric_name in metric_ops:
             tf.summary.scalar(
-              name="training_metric_" + metric_name,
-              tensor=metric_ops[metric_name][1])  # index 0 contains value_op, 1 contains update_op
+                name=f"training_metric_{metric_name}",
+                tensor=metric_ops[metric_name][1],
+            )
 
     if mode == tf.estimator.ModeKeys.PREDICT and self._export_output_fn is not None:
       # note that this is ignored by the predict method.
@@ -824,13 +815,13 @@ class Trainer(object):
     )
     train_hooks = [step_counter]
 
-    if self._profiler_steps is not None:
-      if not self._params.get('distributed') or self._estimator.config.is_chief:
-        profiler = tf.train.ProfilerHook(
-          save_steps=self._profiler_steps,
-          output_dir=self._save_dir
-        )
-        train_hooks.append(profiler)
+    if self._profiler_steps is not None and (not self._params.get('distributed')
+                                             or self._estimator.config.is_chief):
+      profiler = tf.train.ProfilerHook(
+        save_steps=self._profiler_steps,
+        output_dir=self._save_dir
+      )
+      train_hooks.append(profiler)
 
     return train_hooks
 
@@ -840,10 +831,7 @@ class Trainer(object):
     Note: This an only be called *after* self._hogwild_setup() is called in __init__()
     """
     if os.environ.get('TF_CONFIG'):
-      if self._estimator.config.task_type == name:
-        return True
-      else:
-        return False
+      return self._estimator.config.task_type == name
     return True
 
   def is_evaluator(self):
@@ -864,9 +852,8 @@ class Trainer(object):
     """
     Helper function to let you know if the task is parameter server.
     """
-    if os.environ.get('TF_CONFIG') and self._estimator.config.task_type == 'ps':
-      return True
-    return False
+    return bool(
+        os.environ.get('TF_CONFIG') and self._estimator.config.task_type == 'ps')
 
   def _exit_ps_after_training_complete(self):
     """
@@ -921,8 +908,11 @@ class Trainer(object):
             raise e  # only exception in this thread, won't fail parameter server thread
           retry += 1
           poke_interval = random.randrange(60, 90) + retry * 10
-          logging.warn("Error getting distributed training job status, will retry after %s seconds." % poke_interval)
+          logging.warn(
+              f"Error getting distributed training job status, will retry after {poke_interval} seconds."
+          )
           time.sleep(poke_interval)
+
     Thread(target=wait_complete_then_exit).start()
 
   def get_eval_hooks(self):  # pylint: disable=no-self-use
@@ -1093,11 +1083,12 @@ class Trainer(object):
       )
       eval_hooks.append(eval_early_stop_duration_hook)
 
-    if not self._is_early_stopping:
-      if (train_max_steps is not None) and (train_max_steps <= 0):
-        if ((max_duration is not None) and (max_duration < 0)) or (max_duration is None):
-          logging.warn("train.max_steps is non-positive, and no early or duration stopping is configured. "
-                      "Training job will loop forever.")
+    if (not self._is_early_stopping and (train_max_steps is not None) and
+        (train_max_steps <= 0) and ((max_duration is not None) and
+                                    (max_duration < 0))
+        or (max_duration is None)):
+      logging.warn("train.max_steps is non-positive, and no early or duration stopping is configured. "
+                  "Training job will loop forever.")
 
     if train_max_steps is not None and train_max_steps > 0:
       # we can't pass max_steps AND steps to estimator.train.
@@ -1382,9 +1373,7 @@ class Trainer(object):
       tf.estimator.train_and_evaluate(self._estimator, train_spec, eval_spec)
     except twml.errors.EarlyStopError:
       # Ignore the exception if on evaluator.
-      if self.is_evaluator():
-        pass
-      else:
+      if not self.is_evaluator():
         raise
 
   def train(self, input_fn=None, steps=None, hooks=None):
@@ -1486,8 +1475,8 @@ class Trainer(object):
 
     mldash_path = 'experiments'
     if self.experiment_tracker.path:
-      mldash_path += '/%s' % encode_url(self.experiment_tracker.experiment_id)
-    tensorboard_args = ['--logdir=%s' % self._save_dir, '--port=%d' % port]
+      mldash_path += f'/{encode_url(self.experiment_tracker.experiment_id)}'
+    tensorboard_args = [f'--logdir={self._save_dir}', '--port=%d' % port]
 
     try:
       args = ['email_and_launch_tensorboard', mldash_path, '--'] + tensorboard_args
@@ -1640,15 +1629,13 @@ class Trainer(object):
         logging.info(
           f"Trainer.hub_export ignored due to process not being {export_task_type_overrider}")
         return
-    else:
-      if self._using_hogwild:
-        if not self.is_evaluator():
-          logging.info("Trainer.hub_export ignored due to the process not being evaluator.")
-          return
-      else:
-        if not self.is_chief():
-          logging.info("Trainer.hub_export ignored due to the process not being chief.")
-          return
+    elif self._using_hogwild:
+      if not self.is_evaluator():
+        logging.info("Trainer.hub_export ignored due to the process not being evaluator.")
+        return
+    elif not self.is_chief():
+      logging.info("Trainer.hub_export ignored due to the process not being chief.")
+      return
 
     if export_dir:
       export_dir = sanitize_hdfs_path(export_dir)
@@ -1698,9 +1685,7 @@ class Trainer(object):
   def _is_on_gke(self) -> bool:
     """Returns True if running on gke."""
     cluster = os.environ.get('TWML_JOB_CLUSTER')
-    if not cluster or cluster in {'smf1', 'atla'}:
-      return False
-    return True
+    return bool(cluster and cluster not in {'smf1', 'atla'})
 
   def _maybe_del_tsd_exit(self, state_files) -> None:
     """Handle potential early exit and TwitterSetDeployment deletion.

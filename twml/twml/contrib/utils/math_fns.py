@@ -44,10 +44,7 @@ def cal_ndcg(label_scores, predicted_scores, top_k_int=1):
 
   dcg = _dcg_idcg(predicted_relevance, cg_discount)
   idcg = _dcg_idcg(sorted_relevance, cg_discount)
-  # the ndcg score of the batch
-  # idcg is 0 if label_scores are all 0
-  ndcg = safe_div(dcg, idcg, 'one_ndcg')
-  return ndcg
+  return safe_div(dcg, idcg, 'one_ndcg')
 
 
 def cal_swapped_ndcg(label_scores, predicted_scores, top_k_int):
@@ -89,8 +86,7 @@ def cal_swapped_ndcg(label_scores, predicted_scores, top_k_int):
   new_dcg = dcg - tiled_ij + new_ij - tiled_ji + new_ji
 
   new_ndcg = safe_div(new_dcg, idcg, 'new_ndcg_in_lambdarank_training')
-  swapped_ndcg = tf.abs(ndcg - new_ndcg)
-  return swapped_ndcg
+  return tf.abs(ndcg - new_ndcg)
 
 
 def _dcg_idcg(relevance_scores, cg_discount):
@@ -149,8 +145,7 @@ def _get_cg_discount(top_k_int=1):
   top_k_range = tf.reshape(top_k_range, [-1, 1])
   # cast top_k_range to float
   top_k_range = tf.cast(top_k_range, dtype=tf.float32)
-  cg_discount = tf.log(top_k_range + 1.0) / log_2
-  return cg_discount
+  return tf.log(top_k_range + 1.0) / log_2
 
 
 def _get_relevance_scores(scores):

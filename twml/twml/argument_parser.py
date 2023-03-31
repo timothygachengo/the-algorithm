@@ -533,10 +533,7 @@ class DefaultSubcommandArgParse(argparse.ArgumentParser):
         action, value
       )
     except ArgumentError as error:
-      error.message += ("\nERROR: Deepbird is trying to interpret \"{}\" as a value of {}. If this is not what you expected, "
-        "then most likely one of the following two things are happening: Either one of your cli arguments are not recognized, "
-        "probably {} or whichever argument you are passing {} as a value to OR you are passing in an argument after "
-        "the `learning_rate_decay` argument.\n").format(value, action.dest, value, value)
+      error.message += f'\nERROR: Deepbird is trying to interpret \"{value}\" as a value of {action.dest}. If this is not what you expected, then most likely one of the following two things are happening: Either one of your cli arguments are not recognized, probably {value} or whichever argument you are passing {value} as a value to OR you are passing in an argument after the `learning_rate_decay` argument.\n'
       raise error
 
 

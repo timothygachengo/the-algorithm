@@ -5,8 +5,7 @@ from twitter.deepbird.io.util import _get_feature_id
 
 class Parser(object):
   def parse(self, line):
-    match = re.search(self.pattern(), line)
-    if match:
+    if match := re.search(self.pattern(), line):
       return self._parse_match(match)
     return None
 
@@ -138,7 +137,7 @@ class DBv2DataExampleParser(Parser):
     for index in range(len(feature_ids)):
       feature_id = feature_ids[index]
       if feature_id not in self.feature_name_by_dbv2_id:
-        print("Missing feature with id: " + str(feature_id))
+        print(f"Missing feature with id: {str(feature_id)}")
         continue
       value_by_feature_name[self.feature_name_by_dbv2_id[feature_id]] = float(feature_values[index])
 

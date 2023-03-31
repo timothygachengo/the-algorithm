@@ -165,4 +165,5 @@ def get_learning_rate_decay_fn(params):
       )
     return cosine_restart_decay_fn
 
-  raise ValueError("Unsupported params.learning_rate_decay: %s" % params.learning_rate_decay)
+  raise ValueError(
+      f"Unsupported params.learning_rate_decay: {params.learning_rate_decay}")

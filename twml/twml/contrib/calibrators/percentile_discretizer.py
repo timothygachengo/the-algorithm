@@ -465,23 +465,19 @@ class PercentileDiscretizerCalibrator(Calibrator):
     hash_map_keys = np.array(list(self._hash_map.keys()), dtype=np.int64)
     hash_map_values = np.array(list(self._hash_map.values()), dtype=np.float32)
 
-    discretizer = self._create_discretizer_layer(n_feature, hash_map_keys,
-                                                 hash_map_values, feature_offsets, name)
-
-    return discretizer
+    return self._create_discretizer_layer(n_feature, hash_map_keys,
+                                          hash_map_values, feature_offsets, name)
 
   def get_layer_args(self):
     '''
     Returns layer arguments required to implement multi-phase training.
     See twml.calibrator.Calibrator.get_layer_args for more detailed documentation.
     '''
-    layer_args = {
-      'n_feature': len(self._discretizer_feature_dict),
-      'n_bin': self._n_bin,
-      'out_bits': self._out_bits,
+    return {
+        'n_feature': len(self._discretizer_feature_dict),
+        'n_bin': self._n_bin,
+        'out_bits': self._out_bits,
     }
-
-    return layer_args
 
   def add_hub_signatures(self, name):
     """
@@ -531,7 +527,7 @@ class PercentileDiscretizerCalibrator(Calibrator):
         prefix of the saved hub signature. Default (string): "default".
     """
     # Since the size is small: (# of bins) * (# of features), we always dump the file.
-    discretizer_export_bin_filename = os.path.join(save_dir, name + '_bin.json')
+    discretizer_export_bin_filename = os.path.join(save_dir, f'{name}_bin.json')
     discretizer_export_bin_dict = {
       'feature_ids': self._bin_histogram_dict['feature_ids'].tolist(),
       'bin_boundaries': self._bin_histogram_dict['bin_vals'].tolist(),
@@ -563,9 +559,10 @@ class PercentileDiscretizerCalibrator(Calibrator):
         name=name)
       # and another signature for keep_inputs mode
       hub.add_signature(
-        inputs=inputs,
-        outputs=calibrator_layer(inputs, keep_inputs=True),
-        name=name + '_keep_inputs')
+          inputs=inputs,
+          outputs=calibrator_layer(inputs, keep_inputs=True),
+          name=f'{name}_keep_inputs',
+      )
 
     # exports the module to the save_dir
     spec = hub.create_module_spec(calibrator_module)

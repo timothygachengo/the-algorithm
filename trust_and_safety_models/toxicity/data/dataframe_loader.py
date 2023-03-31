@@ -164,8 +164,7 @@ class ENLoaderWithSampling(ENLoader):
   def sample_with_weights(self, df, n):
     w = df["label"].value_counts(normalize=True)[1]
     dist = np.full((df.shape[0],), w)
-    sampled_df = df.sample(n=n, weights=dist, replace=False)
-    return sampled_df
+    return df.sample(n=n, weights=dist, replace=False)
 
   def sample_keywords(self, df, N, group):
     print("\nmatching", group, "keywords...")
@@ -301,15 +300,7 @@ class I18nLoader(DataframeLoader):
 
   def query_keys(self, language, task=2, size="50"):
     if task == 2:
-      if language == "ar":
-        self.query_settings["adhoc_v2"]["table"] = "..."
-      elif language == "tr":
-        self.query_settings["adhoc_v2"]["table"] = "..."
-      elif language == "es":
-        self.query_settings["adhoc_v2"]["table"] = f"..."
-      else:
-        self.query_settings["adhoc_v2"]["table"] = "..."
-
+      self.query_settings["adhoc_v2"]["table"] = "..."
       return self.query_settings["adhoc_v2"]
 
     if task == 3:

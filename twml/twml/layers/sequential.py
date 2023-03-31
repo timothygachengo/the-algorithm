@@ -45,7 +45,8 @@ class Sequential(Layer):
       raise TypeError('The added layer must be an instance of class Layer')
 
     if layer.name in self._layer_names:
-      raise ValueError('Layer with name %s already exists in sequential layer' % layer.name)
+      raise ValueError(
+          f'Layer with name {layer.name} already exists in sequential layer')
 
     self._layers.append(layer)
     self._layer_names.append(layer.name)

@@ -150,7 +150,7 @@ class FullDense(Layer):
       for other_shape in input_shapes[1:]:
         is_compatible &= input_shape.is_compatible_with(other_shape)
       if not is_compatible:
-        raise ValueError("Input shapes %s are not compatible." % input_shapes)
+        raise ValueError(f"Input shapes {input_shapes} are not compatible.")
     else:
       input_shape = input_shapes
 

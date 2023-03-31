@@ -113,13 +113,9 @@ class AdditionalResultLogger(tf.keras.callbacks.Callback):
         self.data = data.text.values
       else:
         self.data = dataset_transform_func(data, mb_size=batch_size, shuffle=False)
-        
-    finally:
-      if len(self.label_names) == 1:
-        self.metric_kw = {}
-      else:
-        self.metric_kw = {'average': None}
 
+    finally:
+      self.metric_kw = {} if len(self.label_names) == 1 else {'average': None}
       self.counter = 0
       self.best_metrics = defaultdict(float)
       self.from_logits = from_logits
@@ -184,7 +180,7 @@ class AdditionalResultLogger(tf.keras.callbacks.Callback):
     preds = self.model.predict(x=self.data, batch_size=self.batch_size)
     if self.from_logits:
       preds = tf.keras.activations.sigmoid(preds.logits).numpy()
-    
+
     if self.single_head:
       if len(self.label_names) == 1:
         metrics = self._binary_evaluations(preds)
@@ -203,7 +199,7 @@ class AdditionalResultLogger(tf.keras.callbacks.Callback):
       num_classes = multic_preds.shape[1]
       for class_ in range(num_classes):
         binary_metrics = self._binary_evaluations(multic_preds[:, class_], label_name='content_output', class_index=class_)
-        metrics.update({f'{k}_content_{class_}': v for k, v in binary_metrics.items()})
+        metrics |= {f'{k}_content_{class_}': v for k, v in binary_metrics.items()}
 
     for k, v in metrics.items():
       self.best_metrics[f"max_{k}"] = max(v, self.best_metrics[f"max_{k}"])
@@ -211,7 +207,7 @@ class AdditionalResultLogger(tf.keras.callbacks.Callback):
     self.log_metrics(metrics, step=step, eval_time=eval_time)
 
   def log_metrics(self, metrics_d, step, eval_time):
-    commit = False if self.set_ == "validation" else True
+    commit = self.set_ != "validation"
     to_report = {self.set_: {**metrics_d, **self.best_metrics}}
 
     if eval_time == "epoch":

@@ -159,13 +159,13 @@ def get_init_map(
     exclude_scopes=exclude_name_scopes,
   )
 
-  if name_scope_to_prepend is not None:
-    if not name_scope_to_prepend.endswith('/'):
-      name_scope_to_prepend += '/'
+  if name_scope_to_prepend is not None and not name_scope_to_prepend.endswith(
+      '/'):
+    name_scope_to_prepend += '/'
 
-  if name_scope_to_remove is not None:
-    if not name_scope_to_remove.endswith('/'):
-      name_scope_to_remove += '/'
+  if name_scope_to_remove is not None and not name_scope_to_remove.endswith(
+      '/'):
+    name_scope_to_remove += '/'
 
   init_map = {}
 
@@ -205,9 +205,8 @@ def get_checkpoint_variable_names(model_dir, exclude_var_names=None, exclude_sco
   def _keep(name):
     if exclude_scopes and any(name.startswith(exc_scope) for exc_scope in exclude_scopes):
       return False
-    if exclude_var_names and any(name.endswith(exc_var) for exc_var in exclude_var_names):
-      return False
-    return True
+    return not exclude_var_names or not any(
+        name.endswith(exc_var) for exc_var in exclude_var_names)
 
   names = [x[0] for x in variables_and_shapes if _keep(x[0])]
 
@@ -222,9 +221,7 @@ def to_snake_case(name):
   insecure = re.sub('([a-z])([A-Z])', r'\1_\2', intermediate).lower()
   # If the class is private the name starts with "_" which is not secure
   # for creating scopes. We prefix the name with "private" in this case.
-  if insecure[0] != '_':
-    return insecure
-  return 'private' + insecure
+  return insecure if insecure[0] != '_' else f'private{insecure}'
 
 
 def copy_phase_inputs(init_dir, dest_dir):
@@ -237,23 +234,24 @@ def copy_phase_inputs(init_dir, dest_dir):
     dest_dir:
       Name of the output directory.
   """
-  if init_dir is not None:
-    # we are using tf.io.gfile so we can use it with both local and hdfs paths
-    for files in tf.io.gfile.listdir(init_dir):
-      if files.endswith(".json.tf"):
-        src_file = os.path.join(init_dir, files)
-        dest_file = os.path.join(dest_dir, files)
-        if not tf.io.gfile.exists(dest_dir):
-          # creates the folder
-          try:
-            tf.io.gfile.makedirs(dest_dir)
-          # to prevent racing condition
-          except OSError:
-            if not tf.io.gfile.isdir(dest_dir):
-              raise
-        # dest_file may be old if it exists and
-        # dest_file gets copied several times in distributed training
-        tf.io.gfile.copy(src_file, dest_file, overwrite=True)
+  if init_dir is None:
+    return
+  # we are using tf.io.gfile so we can use it with both local and hdfs paths
+  for files in tf.io.gfile.listdir(init_dir):
+    if files.endswith(".json.tf"):
+      src_file = os.path.join(init_dir, files)
+      dest_file = os.path.join(dest_dir, files)
+      if not tf.io.gfile.exists(dest_dir):
+        # creates the folder
+        try:
+          tf.io.gfile.makedirs(dest_dir)
+        # to prevent racing condition
+        except OSError:
+          if not tf.io.gfile.isdir(dest_dir):
+            raise
+      # dest_file may be old if it exists and
+      # dest_file gets copied several times in distributed training
+      tf.io.gfile.copy(src_file, dest_file, overwrite=True)
 
 
 def rehash_sparse_features_nbits(sp_a, nbits, hash_fn=multiplicative_hash):
@@ -374,14 +372,14 @@ def dynamic_partition(features, partitions, num_partitions=2, name=None):
       # Create an empty list of lists first, will be converted to right type afterwards.
       outputs.append([None for _ in range(len(features))])
     else:
-      outputs.append(dict())
+      outputs.append({})
 
   iterable = features.items() if isinstance(features, dict) else enumerate(features)
 
   # Handling partitions of nested classes handled here:
   # Recursively call dynamic_partition for containers
   for key, feature in iterable:
-    name_key = None if name is None else name + "_" + str(key)
+    name_key = None if name is None else f"{name}_{str(key)}"
     if isinstance(partitions, tf.Tensor):
       results = tf.dynamic_partition(feature, partitions, num_partitions, name_key)
     else:
@@ -522,9 +520,10 @@ def backup_checkpoint(checkpoint_path_prefix,
   n_backup = 0
   # copy all checkpoint files to backup directory (TODO use gfile.glob instead)
   try:
-    checkpoint_files = tf.io.gfile.glob(checkpoint_path_prefix + "*")
+    checkpoint_files = tf.io.gfile.glob(f"{checkpoint_path_prefix}*")
     if len(checkpoint_files) == 0:
-      raise twml.errors.CheckpointNotFoundError("%s not found" % checkpoint_path_prefix)
+      raise twml.errors.CheckpointNotFoundError(
+          f"{checkpoint_path_prefix} not found")
     for filename in checkpoint_files:
       n_backup += 1
       tf.io.gfile.copy(
@@ -658,9 +657,14 @@ def list_files_by_datetime(
 
   # a set is used because there might be some repeated globs depending on dt_prefix_format
   globs = {
-    os.path.join(base_path, dt.strftime(datetime_prefix_format), '*.%s' % extension)
-    for dt in rrule.rrule(
-      freq=rrule.HOURLY, interval=hour_resolution, dtstart=start_datetime, until=end_datetime)
+      os.path.join(base_path, dt.strftime(datetime_prefix_format),
+                   f'*.{extension}')
+      for dt in rrule.rrule(
+          freq=rrule.HOURLY,
+          interval=hour_resolution,
+          dtstart=start_datetime,
+          until=end_datetime,
+      )
   }
   nested_files = Parallel(n_jobs=parallelism, backend='threading')(
     delayed(_handle_missing_globs)(p) for p in globs
@@ -698,9 +702,9 @@ def limit_sparse_tensor_size(sparse_tf, input_size_bits, mask_indices=True):
   if isinstance(sparse_tf, twml.SparseTensor):
     sparse_tf = sparse_tf.to_tf()
   if not isinstance(sparse_tf, tf.SparseTensor):
-    raise TypeError('Input argument `sparse_tf` should either be of type'
-                    'twml.SparseTensor of tf.SparseTensor. Found type: {}'.
-                    format(type(sparse_tf)))
+    raise TypeError(
+        f'Input argument `sparse_tf` should either be of typetwml.SparseTensor of tf.SparseTensor. Found type: {type(sparse_tf)}'
+    )
   if mask_indices:
     indices = twml.limit_bits(sparse_tf.indices, input_size_bits)
   else:
@@ -727,8 +731,9 @@ def create_module_spec(mlp_fn, mode, params, drop_collections=None):
   tags_and_args = [(set(), {"params": params, "mode": mode}),  # serving graph
                    ({"train"}, {"params": params, "mode": mode})  # training graph
                    ]
-  spec = hub.create_module_spec(mlp_fn, tags_and_args=tags_and_args, drop_collections=drop_collections)
-  return spec
+  return hub.create_module_spec(mlp_fn,
+                                tags_and_args=tags_and_args,
+                                drop_collections=drop_collections)
 
 
 def change_name_scope_from_dir(init_scope_name, final_scope_name, save_dir):
@@ -761,7 +766,7 @@ def change_name_scope_from_dir(init_scope_name, final_scope_name, save_dir):
   latest_checkpoint = tf.train.latest_checkpoint(save_dir)
 
   if latest_checkpoint is None:
-    raise OSError("No checkpoints found in save_dir: %s" % save_dir)
+    raise OSError(f"No checkpoints found in save_dir: {save_dir}")
 
   latest_backup_checkpoint = tf.train.latest_checkpoint(backup_dir)
 
@@ -771,14 +776,15 @@ def change_name_scope_from_dir(init_scope_name, final_scope_name, save_dir):
     backup_checkpoint(latest_checkpoint, backup_dir, empty_backup=False)
 
   variables = tf.train.list_variables(backup_dir)
-  with tf.Graph().as_default(), tf.Session().as_default() as sess:
+  with (tf.Graph().as_default(), tf.Session().as_default() as sess):
     new_variables = []
     for name, _ in variables:
       var = tf.train.load_variable(backup_dir, name)
-      # Append both the rename and the original variable
-      new_variables.append(
-        tf.Variable(var, name=name.replace(init_scope_name, final_scope_name)))
-      new_variables.append(tf.Variable(var, name=name))
+      new_variables.extend((
+          tf.Variable(var,
+                      name=name.replace(init_scope_name, final_scope_name)),
+          tf.Variable(var, name=name),
+      ))
     # Save this to the checkpoint in the save_dir
     saver = tf.train.Saver(new_variables)
     sess.run(tf.global_variables_initializer())
@@ -799,8 +805,7 @@ def hub_import(input, module, module_name, trainable=False):
   """
   import tensorflow_hub as hub # noqa: F402
   hub_module = hub.Module(module, trainable=trainable)
-  output = hub_module(input, signature=module_name)
-  return output
+  return hub_module(input, signature=module_name)
 
 
 def _extract_hash_space_bits(feature_config):
@@ -815,10 +820,10 @@ def _extract_hash_space_bits(feature_config):
   if not isinstance(feature_config, twml.contrib.feature_config.FeatureConfig):
     fc_type = type(feature_config)
     raise TypeError(f"Feature config must be of type contrib.FeatureConfig: {fc_type}")
-  sparse_shapes_dict = {}
-  for config in feature_config.sparse_extraction_configs:
-    sparse_shapes_dict[config.output_name] = config.hash_space_bits
-  return sparse_shapes_dict
+  return {
+      config.output_name: config.hash_space_bits
+      for config in feature_config.sparse_extraction_configs
+  }
 
 
 def fix_shape_sparse(features, feature_config):
@@ -914,11 +919,12 @@ def get_distributed_training_job_path():
   one worker job and one evaluator job. All of these three jobs' name
   share a common base job name.
   """
-  job_path = AuroraPath(dc=os.environ.get("TWML_JOB_CLUSTER"),
-    role=os.environ.get("TWML_JOB_ROLE"),
-    env=os.environ.get("TWML_JOB_ENV"),
-    job_name=os.environ.get("TWML_DISTRIBUTED_BASE_JOBNAME"))
-  return job_path
+  return AuroraPath(
+      dc=os.environ.get("TWML_JOB_CLUSTER"),
+      role=os.environ.get("TWML_JOB_ROLE"),
+      env=os.environ.get("TWML_JOB_ENV"),
+      job_name=os.environ.get("TWML_DISTRIBUTED_BASE_JOBNAME"),
+  )
 
 def do_every_n_steps(action, num_steps):
   """

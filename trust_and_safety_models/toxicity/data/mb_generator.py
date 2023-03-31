@@ -41,7 +41,7 @@ class BalancedMiniBatchLoader(object):
     sample_weights=None,
     huggingface=False,
   ):
-    if 0 >= perc_training_tox or perc_training_tox > 0.5:
+    if perc_training_tox <= 0 or perc_training_tox > 0.5:
       raise ValueError("Perc_training_tox should be in ]0; 0.5]")
 
     self.perc_training_tox = perc_training_tox
@@ -147,9 +147,7 @@ class BalancedMiniBatchLoader(object):
       collate_fn=data_collator,
     )
 
-    if shuffle:
-      return tensorflow_ds.repeat()
-    return tensorflow_ds
+    return tensorflow_ds.repeat() if shuffle else tensorflow_ds
 
   def make_pure_tensorflow_ds(self, df, nb_samples):
     buffer_size = nb_samples * 2
@@ -172,7 +170,7 @@ class BalancedMiniBatchLoader(object):
 
   def get_balanced_dataset(self, training_data, size_limit=None, return_as_batch=True):
     training_data = training_data.sample(frac=1, random_state=self.seed)
-    nb_samples = training_data.shape[0] if not size_limit else size_limit
+    nb_samples = size_limit or training_data.shape[0]
 
     num_classes = training_data.int_label.nunique()
     toxic_class = training_data.int_label.max()

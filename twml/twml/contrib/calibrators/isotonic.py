@@ -158,9 +158,7 @@ class IsotonicFeature(CalibrationFeature):
     bweights = np.asarray(bweights).T
     # setting _calibrated to be True which is necessary in order to prevent it to re-calibrate
     self._calibrated = True
-    if debug:
-      return bpreds, rpreds, btargets, bweights
-    return bpreds, rpreds
+    return (bpreds, rpreds, btargets, bweights) if debug else (bpreds, rpreds)
 
 
 class IsotonicCalibrator(Calibrator):
@@ -216,8 +214,8 @@ class IsotonicCalibrator(Calibrator):
     '''
     if predictions.shape != targets.shape:
       raise ValueError(
-        'Expecting predictions.shape == targets.shape, got %s and %s instead' %
-        (str(predictions.shape), str(targets.shape)))
+          f'Expecting predictions.shape == targets.shape, got {str(predictions.shape)} and {str(targets.shape)} instead'
+      )
     if weights is not None:
       if weights.ndim != 1:
         raise ValueError('Expecting 1D weight, got %dD instead' % weights.ndim)
@@ -262,9 +260,7 @@ class IsotonicCalibrator(Calibrator):
     self._xs_input = np.array(weight_temp, dtype=np.float32)
     self._ys_input = np.array(bias_temp, dtype=np.float32)
     logging.info("Isotonic calibration finished.")
-    if debug:
-      return np.array(weight_temp), np.array(bias_temp)
-    return None
+    return (np.array(weight_temp), np.array(bias_temp)) if debug else None
 
   def save(self, save_dir, name="default", verbose=False):
     '''Save the calibrator into the given save_directory.
@@ -305,12 +301,11 @@ class IsotonicCalibrator(Calibrator):
     if not self._calibrated:
       raise RuntimeError("Expecting prior call to calibrate()")
 
-    isotonic_layer = twml.layers.Isotonic(
-      n_unit=self._xs_input.shape[0], n_bin=self._xs_input.shape[1],
-      xs_input=self._xs_input, ys_input=self._ys_input,
-      **self._kwargs)
-
-    return isotonic_layer
+    return twml.layers.Isotonic(n_unit=self._xs_input.shape[0],
+                                n_bin=self._xs_input.shape[1],
+                                xs_input=self._xs_input,
+                                ys_input=self._ys_input,
+                                **self._kwargs)
 
   def get_layer_args(self, name=None):
     """ Returns layer args. See ``Calibrator.get_layer_args`` for more detailed documentation """

@@ -10,8 +10,8 @@ def get_lolly_logits(labels):
   '''
   eb_lolly_scores = get_lolly_scores(labels)
   inverse_eb_lolly_scores = tf.math.subtract(1.0, eb_lolly_scores)
-  lolly_activations = tf.math.subtract(tf.math.log(eb_lolly_scores), tf.math.log(inverse_eb_lolly_scores))
-  return lolly_activations
+  return tf.math.subtract(tf.math.log(eb_lolly_scores),
+                          tf.math.log(inverse_eb_lolly_scores))
 
 def get_lolly_scores(labels):
   '''
@@ -19,5 +19,4 @@ def get_lolly_scores(labels):
   :return: tf.Tensor of shape (batch size) with the extracted lolly scores.
   '''
   logged_eb_lolly_scores = tf.reshape(labels[:, EB_SCORE_IDX], (-1, 1))
-  eb_lolly_scores = tf.truediv(logged_eb_lolly_scores, 100.0)
-  return eb_lolly_scores
+  return tf.truediv(logged_eb_lolly_scores, 100.0)
